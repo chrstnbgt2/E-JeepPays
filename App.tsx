@@ -5,6 +5,7 @@ import LoginRegister from './pages/LoginRegister';
 import LoginScreen from './pages/Login';
 import RegisterScreen from './pages/Register';
 import Dashboard from './pages/Dashboard';
+import Next from './pages/RegisterCont';
 
 const Stack = createStackNavigator();
 
@@ -30,6 +31,11 @@ const App = (): React.ReactElement => {
          <Stack.Screen
           name="Home"
           component={Dashboard}
+          options={{ headerShown: false }}
+        />
+           <Stack.Screen
+          name="Next"
+          component={Next}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>

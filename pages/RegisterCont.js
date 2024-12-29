@@ -12,10 +12,9 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
  
-
-const RegisterScreen = () => {
+const RegisterScreen2 = () => {
       const navigation = useNavigation();
-    
+        
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -24,7 +23,7 @@ const RegisterScreen = () => {
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         {/* Top Curve */}
         <Image
-          source={require('../assets/images/top-curve.png')} // Replace with your actual top curve image path
+          source={require('../assets/images/top-curve.png')}  
           style={styles.topCurve}
           resizeMode="cover"
         />
@@ -34,7 +33,7 @@ const RegisterScreen = () => {
           {/* Logo Section */}
           <View style={styles.logoContainer}>
             <Image
-              source={require('../assets/images/logo.png')} // Replace with your logo path
+              source={require('../assets/images/logo.png')}  
               style={styles.logo}
             />
             <Text style={styles.title}>REGISTER</Text>
@@ -42,36 +41,39 @@ const RegisterScreen = () => {
 
           {/* Input Fields */}
           <TextInput
-            placeholder="First Name"
+            placeholder="Phone Number"
             placeholderTextColor="#9FA5AA"
             style={styles.input}
+            keyboardType="phone-pad"
           />
           <TextInput
-            placeholder="Middle Name (Optional)"
+            placeholder="Email"
             placeholderTextColor="#9FA5AA"
             style={styles.input}
+            keyboardType="email-address"
           />
           <TextInput
-            placeholder="Last Name"
+            placeholder="Password"
             placeholderTextColor="#9FA5AA"
             style={styles.input}
+            secureTextEntry
           />
 
-          {/* Next Button */}
-          <TouchableOpacity style={styles.nextButton}onPress={() => navigation.navigate('Next')}>
-            <Text style={styles.nextButtonText}>Next</Text>
+          {/* Register Button */}
+          <TouchableOpacity style={styles.registerButton}>
+            <Text style={styles.registerButtonText}>Register</Text>
           </TouchableOpacity>
 
           {/* Login Link */}
           <Text style={styles.loginText}>
             Already have an account?{' '}
-            <Text style={styles.loginLink}   onPress={() => navigation.navigate('Login')}>Login</Text>
+            <Text style={styles.loginLink} onPress={() => navigation.navigate('Login')}>Login</Text>
           </Text>
         </View>
 
         {/* Bottom Curve */}
         <Image
-          source={require('../assets/images/bot-curve.png')} // Replace with your actual bottom curve image path
+          source={require('../assets/images/bot-curve.png')}  
           style={styles.bottomCurve}
           resizeMode="cover"
         />
@@ -83,7 +85,7 @@ const RegisterScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#466B66', // Background color for the screen
+    backgroundColor: '#466B66',  
   },
   scrollContent: {
     flexGrow: 1,
@@ -94,7 +96,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 120, // Adjust this to match the height of your top PNG
+    height: 120, 
     zIndex: 1,
   },
   bottomCurve: {
@@ -102,7 +104,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    height: 120, // Adjust this to match the height of your bottom PNG
+    height: 120, 
     zIndex: 1,
   },
   content: {
@@ -110,8 +112,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 20,
-    marginTop: 150, // Adjust based on the top curve height
-    marginBottom: 150, // Adjust based on the bottom curve height
+    marginTop: 150,  
+    marginBottom: 150,  
   },
   logoContainer: {
     alignItems: 'center',
@@ -119,7 +121,7 @@ const styles = StyleSheet.create({
   },
   logo: {
     width: 150,
-    height: 150,
+    height: 150, 
   },
   title: {
     fontSize: 24,
@@ -137,7 +139,7 @@ const styles = StyleSheet.create({
     color: '#000',
     marginBottom: 15,
   },
-  nextButton: {
+  registerButton: {
     backgroundColor: '#8FCB81',
     paddingVertical: 15,
     width: '100%',
@@ -145,7 +147,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 20,
   },
-  nextButtonText: {
+  registerButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
@@ -161,4 +163,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default RegisterScreen;
+export default RegisterScreen2;

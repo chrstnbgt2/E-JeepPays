@@ -62,7 +62,7 @@ const LoginScreen = () => {
 
           {/* Email Input */}
           <View style={styles.inputContainer}>
-            <Ionicons name="logo-ionic" size={20} color="#9FA5AA" style={styles.icon} />
+            <Ionicons name="person-outline" size={20} color="#9FA5AA" style={styles.icon} />
             
             <TextInput
               placeholder="Email"
@@ -90,7 +90,7 @@ const LoginScreen = () => {
           </TouchableOpacity>
 
           {/* Login Button */}
-          <TouchableOpacity style={styles.loginButton} onPress={() => navigation.navigate('Login')}>
+          <TouchableOpacity style={styles.loginButton} onPress={() => navigation.navigate('Home')}>
             <Text style={styles.loginButtonText}>Login</Text>
           </TouchableOpacity>
 
