@@ -13,6 +13,8 @@ import ProfileScreen from './pages/Profile';
 import CashInScreen from './pages/Cashin';
 import MyQRScreenShare from './pages/QrCodeShare';
 import DiscountScreen from './pages/Discount';
+import BusDetail from './pages/BusDetail';
+
 
 const Stack = createStackNavigator();
 
@@ -79,6 +81,11 @@ const App = (): React.ReactElement => {
          <Stack.Screen
           name="Discount"
           component={DiscountScreen}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="BusDetail"
+          component={BusDetail}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>

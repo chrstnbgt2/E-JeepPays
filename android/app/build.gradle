@@ -50,7 +50,7 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
-            // Replace with release keystore for production builds
+           
             signingConfig signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"

@@ -58,7 +58,7 @@ const JeepTrackerScreen = () => {
       </View>
 
       {/* View Jeep Details Button */}
-      <TouchableOpacity style={styles.detailsButton}>
+      <TouchableOpacity style={styles.detailsButton} onPress={() => navigation.navigate('BusDetail')}>
         <Text style={styles.detailsButtonText}>View Jeep Details</Text>
       </TouchableOpacity>
 
