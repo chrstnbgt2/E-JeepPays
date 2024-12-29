@@ -11,16 +11,23 @@
     "test": "jest"
   },
   "dependencies": {
+    "@react-native-community/datetimepicker": "github:react-native-community/datetimepicker",
+    "@react-native-picker/picker": "^2.10.2",
     "@react-navigation/stack": "^7.1.1",
     "@rnmapbox/maps": "^10.1.33",
     "react": "18.3.1",
     "react-native": "0.76.5",
+    "react-native-custom-qr-codes": "^2.0.0",
+    "react-native-document-picker": "^9.3.1",
     "react-native-dotenv": "^3.4.11",
+    "react-native-dropdown-picker": "^5.4.6",
     "react-native-gesture-handler": "^2.21.2",
     "react-native-get-random-values": "^1.11.0",
+    "react-native-qrcode-svg": "^6.3.12",
     "react-native-reanimated": "^3.16.6",
     "react-native-safe-area-context": "^5.0.0",
     "react-native-screens": "^4.4.0",
+    "react-native-svg": "^15.10.1",
     "react-native-vector-icons": "^10.2.0"
   },
   "devDependencies": {

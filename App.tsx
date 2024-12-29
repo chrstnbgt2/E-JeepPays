@@ -6,6 +6,13 @@ import LoginScreen from './pages/Login';
 import RegisterScreen from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import Next from './pages/RegisterCont';
+import Tracker from './pages/JeepTracker';
+import MyQR from './pages/QrCode';
+import History from './pages/Transactions';
+import ProfileScreen from './pages/Profile';
+import CashInScreen from './pages/Cashin';
+import MyQRScreenShare from './pages/QrCodeShare';
+import DiscountScreen from './pages/Discount';
 
 const Stack = createStackNavigator();
 
@@ -36,6 +43,42 @@ const App = (): React.ReactElement => {
            <Stack.Screen
           name="Next"
           component={Next}
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="Tracker"
+          component={Tracker}
+          options={{ headerShown: false }}
+        />
+         <Stack.Screen
+          name="MyQR"
+          component={MyQR}
+          options={{ headerShown: false }}
+        />
+
+        <Stack.Screen
+          name="History"
+          component={History}
+          options={{ headerShown: false }}
+        />
+          <Stack.Screen
+          name="Profile"
+          component={ProfileScreen}
+          options={{ headerShown: false }}
+        />
+          <Stack.Screen
+          name="Cashin"
+          component={CashInScreen}
+          options={{ headerShown: false }}
+        />
+         <Stack.Screen
+          name="Share"
+          component={MyQRScreenShare}
+          options={{ headerShown: false }}
+        />
+         <Stack.Screen
+          name="Discount"
+          component={DiscountScreen}
           options={{ headerShown: false }}
         />
       </Stack.Navigator>
