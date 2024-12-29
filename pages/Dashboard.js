@@ -35,7 +35,7 @@ const HomeScreen = () => {
             source={require('../assets/images/wallet-icon.png')} 
             style={styles.walletIcon}
           />
-          <TouchableOpacity style={styles.cashInButton} onPress={() => navigation.navigate('Cashin')}>
+          <TouchableOpacity style={styles.cashInButton} onPress={() => navigation.navigate('CashIn')}>
             <Text style={styles.cashInText}>Cash In</Text>
           </TouchableOpacity>
         </View>
@@ -88,30 +88,7 @@ const HomeScreen = () => {
         </View>
       </ScrollView>
 
-      {/* Bottom Navigation Tabs */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem}>
-          <Ionicons name="home" size={24} color="#8FCB81" onPress={() => navigation.navigate('Home')}/>
-          <Text style={styles.navText}>Home</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.navItem}   onPress={() => navigation.navigate('Tracker')}>
-          <Ionicons name="location-outline" size={24} color="#FFFFFF" />
-          <Text style={styles.navText}>Tracker</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}  onPress={() => navigation.navigate('MyQR')}>
-          <Ionicons name="qr-code-outline" size={24} color="#FFFFFF" />
-          <Text style={styles.navText}>My QR</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem}  onPress={() => navigation.navigate('History')}>
-          <Ionicons name="time-outline" size={24} color="#FFFFFF" />
-          <Text style={styles.navText}>History</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('Profile')}>
-          <Ionicons name="person-outline" size={24} color="#FFFFFF" />
-          <Text style={styles.navText}>Profile</Text>
-        </TouchableOpacity>
-      </View>
+     
 
     </View>
   );

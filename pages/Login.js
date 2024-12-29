@@ -10,16 +10,19 @@ import {
   ScrollView,
   Platform,
   Keyboard,
+  Alert,
 } from 'react-native';
 
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 
 const LoginScreen = () => {
+  const navigation = useNavigation();
 
-   const navigation = useNavigation();
-  
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () =>
@@ -34,6 +37,13 @@ const LoginScreen = () => {
       keyboardDidHideListener.remove();
     };
   }, []);
+
+  const handleLogin = () => {
+ 
+  
+    navigation.navigate('Main');
+  
+  };
 
   return (
     <KeyboardAvoidingView
@@ -60,15 +70,20 @@ const LoginScreen = () => {
           />
           <Text style={styles.title}>LOGIN</Text>
 
+          {/* Error Message */}
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
           {/* Email Input */}
           <View style={styles.inputContainer}>
             <Ionicons name="person-outline" size={20} color="#9FA5AA" style={styles.icon} />
-            
             <TextInput
               placeholder="Email"
               placeholderTextColor="#9FA5AA"
               style={styles.input}
               keyboardType="email-address"
+              value={email}
+              onChangeText={setEmail}
+              autoCapitalize="none"
             />
           </View>
 
@@ -80,17 +95,19 @@ const LoginScreen = () => {
               placeholderTextColor="#9FA5AA"
               style={styles.input}
               secureTextEntry
+              value={password}
+              onChangeText={setPassword}
             />
             <Ionicons name="eye-off-outline" size={20} color="#9FA5AA" style={styles.icon} />
           </View>
 
           {/* Forgot Password */}
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => Alert.alert('Reset Password', 'Password reset flow')}>
             <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
           </TouchableOpacity>
 
           {/* Login Button */}
-          <TouchableOpacity style={styles.loginButton} onPress={() => navigation.navigate('Home')}>
+          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
             <Text style={styles.loginButtonText}>Login</Text>
           </TouchableOpacity>
 
@@ -196,6 +213,11 @@ const styles = StyleSheet.create({
   registerLink: {
     color: '#8FCB81',
     textDecorationLine: 'underline',
+  },
+  errorText: {
+    color: 'red',
+    fontSize: 14,
+    marginBottom: 10,
   },
   bottomCurve: {
     position: 'absolute',

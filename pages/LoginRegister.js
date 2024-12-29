@@ -65,6 +65,7 @@ const styles = StyleSheet.create({
       right: 0,
       height: 120, // Adjust to match your image height
       zIndex: 1,
+      width:'100%',
     },
     greenContainer: {
       width: '100%',
@@ -135,6 +136,7 @@ const styles = StyleSheet.create({
     
     bottomCurve: {
       position: 'absolute',
+      width:'100%',
       bottom: 0,
       left: 0,
       right: 0,
