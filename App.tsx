@@ -2,8 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import Ionicons from 'react-native-vector-icons/Ionicons';
-import MaterialCommunity from 'react-native-vector-icons/MaterialCommunity'
+import Ionicons from 'react-native-vector-icons/Ionicons'; 
 import { StyleSheet, TouchableOpacity, Image } from 'react-native';
 
 // Import screens
@@ -24,6 +23,9 @@ import ProfileScreenDriver from './pages/DriverProfile';
 import Conductors from './pages/DriverConductors';
 import CreateConductor from './pages/AddConductor';
 import UpdateConductor from './pages/UpdateConductor';
+import HomeScreenDriver from './pages/DashboardDriver';
+import HomeScreenConductor from './pages/DashbooardConductor';
+import QRCodeScannerScreen from './pages/ScanQR';
 // Navigators
 const AuthStack = createStackNavigator();
 const UserTabs = createBottomTabNavigator();
@@ -76,7 +78,7 @@ const DriverNavigator = () => (
       tabBarStyle: styles.tabBar,
       tabBarIcon: ({ color, size }) => {
         let iconName;
-        if (route.name === 'Dashboard') iconName = 'home';
+        if (route.name === 'DashboardDriver') iconName = 'home';
         if (route.name === 'Seat') iconName = 'car';
         if (route.name === 'Profile') iconName = 'person';
         if (route.name === 'History') iconName = 'time';
@@ -89,7 +91,7 @@ const DriverNavigator = () => (
       tabBarInactiveTintColor: '#FFFFFF',
     })}
   >
-    <DriverTabs.Screen name="Dashboard" component={Dashboard} options={{ tabBarLabel: 'Home' }} />
+    <DriverTabs.Screen name="DashboardDriver" component={HomeScreenDriver} options={{ tabBarLabel: 'home' }} />
     <DriverTabs.Screen name="Seat" component={BusDetail} options={{ tabBarLabel: 'Seat' }} />
 
     {/* Custom Middle Tab with Image */}
@@ -121,7 +123,9 @@ const ConductorNavigator = () => (
       tabBarStyle: styles.tabBar,
       tabBarIcon: ({ color, size }) => {
         let iconName;
+        if (route.name === 'DashboardConductor') iconName = 'home';
         if (route.name === 'Tracker') iconName = 'location';
+        if (route.name === 'ScanQR') iconName = 'scan-circle-outline';
         if (route.name === 'Discount') iconName = 'pricetag';
         if (route.name === 'Share') iconName = 'share-social';
         return <Ionicons name={iconName} size={size} color={color} />;
@@ -130,12 +134,14 @@ const ConductorNavigator = () => (
       tabBarInactiveTintColor: '#FFFFFF',
     })}
   >
+    <ConductorTabs.Screen name="DashboardConductor" component={HomeScreenConductor} options={{ tabBarLabel: 'home' }} />
     <ConductorTabs.Screen name="Tracker" component={Tracker} />
+    <ConductorTabs.Screen name="ScanQR" component={QRCodeScannerScreen} />
     <ConductorTabs.Screen name="Discount" component={DiscountScreen} />
     <ConductorTabs.Screen name="Share" component={MyQRScreenShare} />
   </ConductorTabs.Navigator>
 );
-
+ 
 /** Root Navigator */
 const App = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false); // Track login state
@@ -145,7 +151,7 @@ const App = () => {
     const checkLoginStatus = async () => {
       // Simulated login status and role fetch
       const loggedIn = true; // Change to true for testing logged-in flow
-      const userRole = 'driver'; // Change to 'user', 'driver', or 'conductor' for testing
+      const userRole = 'conductor'; // Change to 'user', 'driver', or 'conductor' for testing
       setIsLoggedIn(loggedIn);
       setRole(userRole);
     };
@@ -178,7 +184,7 @@ const App = () => {
         <RootStack.Screen name="CashIn" component={CashInScreen} />
         <RootStack.Screen name="Share" component={MyQRScreenShare} />
         <RootStack.Screen name="BusDetail" component={BusDetail} />
-        <RootStack.Screen name="Conductor" component={Conductors} />
+        <RootStack.Screen name="ConductorList" component={Conductors} />
         <RootStack.Screen name="AddConductor" component={CreateConductor} />
         <RootStack.Screen name="UpdateConductor" component={UpdateConductor} />
       </RootStack.Navigator>
@@ -203,9 +209,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     height: 60,
     width: 60,
-    backgroundColor: '#FFF', // Background color for the circular tab
-    borderRadius: 30, // Makes it a circle
-    elevation: 5, // Adds shadow
+    backgroundColor: '#FFF', 
+    borderRadius: 30,  
+    elevation: 5,  
   },
   middleImage: {
     height: 60,

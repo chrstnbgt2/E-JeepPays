@@ -4,9 +4,7 @@ import MapboxGL from '@rnmapbox/maps';
 import { MAPBOX_ACCESS_TOKEN } from '@env';  
 import { useNavigation } from '@react-navigation/native';
  
-import Ionicons from 'react-native-vector-icons/Ionicons';
-
-
+ 
 MapboxGL.setAccessToken(MAPBOX_ACCESS_TOKEN);
 
 const JeepTrackerScreen = () => {
