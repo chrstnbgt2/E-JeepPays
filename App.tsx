@@ -26,6 +26,9 @@ import UpdateConductor from './pages/UpdateConductor';
 import HomeScreenDriver from './pages/DashboardDriver';
 import HomeScreenConductor from './pages/DashbooardConductor';
 import QRCodeScannerScreen from './pages/ScanQR';
+import ProfileScreenConductor from './pages/ProfileScreenConductor';
+import MyQRScreenShareConductor from './pages/ConductorShareQr';
+import GeneratedQRPage from './pages/GenerateQr';
 // Navigators
 const AuthStack = createStackNavigator();
 const UserTabs = createBottomTabNavigator();
@@ -126,8 +129,9 @@ const ConductorNavigator = () => (
         if (route.name === 'DashboardConductor') iconName = 'home';
         if (route.name === 'Tracker') iconName = 'location';
         if (route.name === 'ScanQR') iconName = 'scan-circle-outline';
-        if (route.name === 'Discount') iconName = 'pricetag';
-        if (route.name === 'Share') iconName = 'share-social';
+        if (route.name === 'History') iconName = 'time';
+        if (route.name === 'Profile') iconName = 'person';
+
         return <Ionicons name={iconName} size={size} color={color} />;
       },
       tabBarActiveTintColor: '#A5BE7D',
@@ -137,8 +141,9 @@ const ConductorNavigator = () => (
     <ConductorTabs.Screen name="DashboardConductor" component={HomeScreenConductor} options={{ tabBarLabel: 'home' }} />
     <ConductorTabs.Screen name="Tracker" component={Tracker} />
     <ConductorTabs.Screen name="ScanQR" component={QRCodeScannerScreen} />
-    <ConductorTabs.Screen name="Discount" component={DiscountScreen} />
-    <ConductorTabs.Screen name="Share" component={MyQRScreenShare} />
+    <ConductorTabs.Screen name="History" component={History} options={{ tabBarLabel: 'History' }} />
+    <ConductorTabs.Screen name="Profile" component={ProfileScreenConductor} options={{ tabBarLabel: 'Profile' }} />
+
   </ConductorTabs.Navigator>
 );
  
@@ -151,7 +156,7 @@ const App = () => {
     const checkLoginStatus = async () => {
       // Simulated login status and role fetch
       const loggedIn = true; // Change to true for testing logged-in flow
-      const userRole = 'conductor'; // Change to 'user', 'driver', or 'conductor' for testing
+      const userRole = 'driver'; // Change to 'user', 'driver', or 'conductor' for testing
       setIsLoggedIn(loggedIn);
       setRole(userRole);
     };
@@ -182,11 +187,12 @@ const App = () => {
         {/* Additional Screens Accessible from All Roles */}
         <RootStack.Screen name="Discount" component={DiscountScreen} />
         <RootStack.Screen name="CashIn" component={CashInScreen} />
-        <RootStack.Screen name="Share" component={MyQRScreenShare} />
+        <RootStack.Screen name="Share" component={MyQRScreenShareConductor} />
         <RootStack.Screen name="BusDetail" component={BusDetail} />
         <RootStack.Screen name="ConductorList" component={Conductors} />
         <RootStack.Screen name="AddConductor" component={CreateConductor} />
         <RootStack.Screen name="UpdateConductor" component={UpdateConductor} />
+        <RootStack.Screen name="GenerateQR" component={GeneratedQRPage} />
       </RootStack.Navigator>
     </NavigationContainer>
   );

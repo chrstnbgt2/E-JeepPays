@@ -5,7 +5,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunity from 'react-native-vector-icons/MaterialCommunityIcons';
 
 
-const ProfileScreenDriver = () => {
+const ProfileScreenConductor = () => {
     const navigation = useNavigation();
   
     
@@ -22,11 +22,7 @@ const ProfileScreenDriver = () => {
         <Text style={styles.menuText}>Account Information</Text>
         <Ionicons name="chevron-forward-outline" size={20} color="#000" />
       </View>
-      <View style={styles.menuItem} >
-        <MaterialCommunity name="account" size={24} color="#000" />
-        <Text style={styles.menuText}>My Conductor</Text>
-        <Ionicons name="chevron-forward-outline" size={20} color="#000" onPress={() => navigation.navigate('ConductorList')} />
-      </View>
+     
       <View style={styles.menuItem}>
         <Ionicons name="pricetags-outline" size={24} color="#000" />
         <Text style={styles.menuText}>Terms and Conditions</Text>
@@ -133,4 +129,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default ProfileScreenDriver;
+export default ProfileScreenConductor;

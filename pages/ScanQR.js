@@ -1,20 +1,32 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Camera, useCameraDevice, useCameraPermission, useCodeScanner } from 'react-native-vision-camera';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
+import { useNavigation } from '@react-navigation/native';
 
 const QRCodeScannerScreen = () => {
+  const navigation = useNavigation();
+  
   const device = useCameraDevice('back');
   const { hasPermission, requestPermission } = useCameraPermission();
+  const [lastScannedTime, setLastScannedTime] = useState(0); // Store the last scanned time
+  const scanInterval = 2000; // 2 seconds interval
 
   const codeScanner = useCodeScanner({
     codeTypes: ['qr', 'ean-13'],
     onCodeScanned: (codes) => {
-      console.log(`Scanned ${codes.length} codes!`)
-    }
-  })
-  
+      const now = Date.now();
+      if (codes.length > 0 && now - lastScannedTime > scanInterval) {
+        console.log(`Scanned Code: ${codes[0].value}`);
+        setLastScannedTime(now); // Update the last scanned time
+      } else if (codes.length > 0) {
+        console.log('Scan ignored due to interval');
+      } else {
+        console.log('No codes scanned');
+      }
+    },
+  });
 
   // Check and request camera permissions
   React.useEffect(() => {
@@ -26,7 +38,6 @@ const QRCodeScannerScreen = () => {
     checkPermission();
   }, [hasPermission, requestPermission]);
 
-  // Handle permission denied
   if (!hasPermission) {
     return (
       <View style={styles.centeredContainer}>
@@ -35,7 +46,6 @@ const QRCodeScannerScreen = () => {
     );
   }
 
-  // Handle no camera device available
   if (device == null) {
     return (
       <View style={styles.centeredContainer}>
@@ -75,15 +85,13 @@ const QRCodeScannerScreen = () => {
 
       {/* Buttons */}
       <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.button1}>
+        <TouchableOpacity style={styles.button1} onPress={() => navigation.navigate('Share')}>
           <Text style={styles.buttonText}>QR Code Share</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.button2}>
           <Text style={styles.buttonText}>Upload QR Code</Text>
         </TouchableOpacity>
       </View>
-
-    
     </View>
   );
 };
@@ -122,7 +130,7 @@ const styles = StyleSheet.create({
     width: 350,
     height: 350,
     borderWidth: 2,
-    borderColor: '#7FA06F', // Green outline
+    borderColor: '#7FA06F',  
     borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
@@ -131,9 +139,9 @@ const styles = StyleSheet.create({
     width: '90%',
     height: '90%',
     borderWidth: 2,
-    borderColor: '#000', // Inner black border
+    borderColor: '#000', 
     borderRadius: 8,
-    overflow: 'hidden', // Ensures the camera fits inside the box
+    overflow: 'hidden',  
     backgroundColor: '#fff',
   },
   iconOverlay: {
@@ -163,17 +171,6 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 14,
     fontWeight: '500',
-  },
-  bottomNav: {
-    position: 'absolute',
-    bottom: 0,
-    width: '100%',
-    height: 70,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: '#7FA06F',
-    paddingTop: 10,
   },
   centeredContainer: {
     flex: 1,

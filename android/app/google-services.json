@@ -1,0 +1,49 @@
+{
+  "project_info": {
+    "project_number": "70390538365",
+    "firebase_url": "https://e-jeepney-8fe2e-default-rtdb.firebaseio.com",
+    "project_id": "e-jeepney-8fe2e",
+    "storage_bucket": "e-jeepney-8fe2e.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:70390538365:android:6970bb8a3305b10d491114",
+        "android_client_info": {
+          "package_name": "com.ejeeppays"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDe65pRpU6Rs9k7uAzUIANH_b2Mt5-WqzA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:70390538365:android:7781acf336d2d733491114",
+        "android_client_info": {
+          "package_name": "com.example.pagsa"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDe65pRpU6Rs9k7uAzUIANH_b2Mt5-WqzA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

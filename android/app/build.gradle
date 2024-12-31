@@ -1,7 +1,7 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
-
+apply plugin: "com.google.gms.google-services" // Add this line
 
 apply from: "../../node_modules/react-native-vector-icons/fonts.gradle"
 
@@ -30,7 +30,7 @@ android {
     namespace "com.ejeeppays"
     defaultConfig {
         applicationId "com.ejeeppays"
-        minSdk 24 // Updated to minimum 24 as required by react-native 0.76.x
+        minSdk 24 
         targetSdk rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
@@ -50,7 +50,6 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
-           
             signingConfig signingConfigs.debug
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
@@ -78,4 +77,11 @@ dependencies {
     implementation "com.squareup.okhttp3:okhttp:4.9.3"
     implementation "com.squareup.okhttp3:logging-interceptor:4.9.3" // Optional for debugging HTTP requests
     implementation 'com.google.mlkit:barcode-scanning:17.3.0'
+
+    // Import the Firebase BoM
+    implementation platform('com.google.firebase:firebase-bom:33.7.0') // Add this line
+
+    // Add Firebase Analytics or any other Firebase service
+    implementation 'com.google.firebase:firebase-analytics' // Example
+    // Add other Firebase dependencies as needed
 }
