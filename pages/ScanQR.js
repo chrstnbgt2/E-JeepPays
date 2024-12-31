@@ -1,59 +1,45 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
-import { Camera, useCameraDevices } from 'react-native-vision-camera';
-import { check, PERMISSIONS, request, RESULTS } from 'react-native-permissions';
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Camera, useCameraDevice, useCameraPermission, useCodeScanner } from 'react-native-vision-camera';
 import Ionicons from 'react-native-vector-icons/Ionicons';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 
-const QRCodeScannerScreen = ({ navigation }) => {
-  const [cameraAuthorized, setCameraAuthorized] = useState(false);
-  const devices = useCameraDevices();
-  const device = devices.back;
+const QRCodeScannerScreen = () => {
+  const device = useCameraDevice('back');
+  const { hasPermission, requestPermission } = useCameraPermission();
 
-  const checkCameraPermission = async () => {
-    const result = await check(
-      Platform.OS === 'ios' ? PERMISSIONS.IOS.CAMERA : PERMISSIONS.ANDROID.CAMERA
-    );
-
-    if (result === RESULTS.GRANTED) {
-      setCameraAuthorized(true);
-    } else if (result === RESULTS.DENIED) {
-      const requestResult = await request(
-        Platform.OS === 'ios' ? PERMISSIONS.IOS.CAMERA : PERMISSIONS.ANDROID.CAMERA
-      );
-      setCameraAuthorized(requestResult === RESULTS.GRANTED);
-    } else {
-      Alert.alert(
-        'Camera Permission',
-        'Camera access is required to scan QR codes. Please enable it in settings.',
-        [{ text: 'OK' }]
-      );
+  const codeScanner = useCodeScanner({
+    codeTypes: ['qr', 'ean-13'],
+    onCodeScanned: (codes) => {
+      console.log(`Scanned ${codes.length} codes!`)
     }
-  };
+  })
+  
 
-  useEffect(() => {
-    checkCameraPermission();
-  }, []);
+  // Check and request camera permissions
+  React.useEffect(() => {
+    const checkPermission = async () => {
+      if (!hasPermission) {
+        await requestPermission();
+      }
+    };
+    checkPermission();
+  }, [hasPermission, requestPermission]);
 
-  const onQRCodeDetected = (data) => {
-    Alert.alert('QR Code Detected', `Data: ${data}`);
-  };
-
-  if (!cameraAuthorized) {
+  // Handle permission denied
+  if (!hasPermission) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.errorText}>
-          Camera access is not authorized. Please grant permission in settings.
-        </Text>
+      <View style={styles.centeredContainer}>
+        <Text style={styles.infoText}>Camera permission is required to use this feature.</Text>
       </View>
     );
   }
 
-  if (!device) {
+  // Handle no camera device available
+  if (device == null) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.errorText}>
-          No camera device available. Please check your hardware or permissions.
-        </Text>
+      <View style={styles.centeredContainer}>
+        <Text style={styles.infoText}>No camera device found.</Text>
       </View>
     );
   }
@@ -62,24 +48,42 @@ const QRCodeScannerScreen = ({ navigation }) => {
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>QR Code Scanner</Text>
       </View>
 
-      {/* QR Scanner */}
-      <Camera
-        style={StyleSheet.absoluteFill}
-        device={device}
-        isActive={true}
-        onFrameProcessor={(frame) => {
-          // QR code detection logic can be added here with a library like VisionCameraCodeScanner.
-          // Example: Use frameProcessor from VisionCameraCodeScanner.
-        }}
-        frameProcessorFps={5}
-      />
-      <Text style={styles.subtitle}>Point your camera at a QR code</Text>
+      {/* Scanner Title */}
+      <Text style={styles.scannerTitle}>Scan passenger QR code</Text>
+
+      {/* Camera and Green Box */}
+      <View style={styles.qrContainer}>
+        <View style={styles.qrBox}>
+          <Camera
+            style={StyleSheet.absoluteFill}
+            device={device}
+            isActive={true}
+            codeScanner={codeScanner}
+          />
+          {/* Overlay Icon */}
+          <View style={styles.iconOverlay}>
+            <MaterialCommunityIcons name="line-scan" size={300} color="black" />
+          </View>
+        </View>
+      </View>
+
+      {/* Buttons */}
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity style={styles.button1}>
+          <Text style={styles.buttonText}>QR Code Share</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.button2}>
+          <Text style={styles.buttonText}>Upload QR Code</Text>
+        </TouchableOpacity>
+      </View>
+
+    
     </View>
   );
 };
@@ -87,36 +91,100 @@ const QRCodeScannerScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    backgroundColor: '#F4F4F4',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
     backgroundColor: '#FFF',
+    padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },
+  backButton: {
+    marginRight: 8,
+  },
   headerTitle: {
-    flex: 1,
     fontSize: 18,
     fontWeight: 'bold',
     color: '#000',
-    textAlign: 'center',
   },
-  subtitle: {
-    position: 'absolute',
-    bottom: 20,
-    width: '100%',
-    fontSize: 16,
-    color: '#FFF',
-    textAlign: 'center',
-  },
-  errorText: {
-    fontSize: 16,
-    color: 'red',
-    textAlign: 'center',
+  scannerTitle: {
     marginTop: 20,
+    fontSize: 16,
+    textAlign: 'center',
+    color: '#333',
+    fontWeight: '500',
+  },
+  qrContainer: {
+    alignSelf: 'center',
+    marginTop: 50,
+    width: 350,
+    height: 350,
+    borderWidth: 2,
+    borderColor: '#7FA06F', // Green outline
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  qrBox: {
+    width: '90%',
+    height: '90%',
+    borderWidth: 2,
+    borderColor: '#000', // Inner black border
+    borderRadius: 8,
+    overflow: 'hidden', // Ensures the camera fits inside the box
+    backgroundColor: '#fff',
+  },
+  iconOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  buttonContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginTop: 20,
+    paddingHorizontal: 20,
+  },
+  button1: {
+    backgroundColor: '#74A059',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 5,
+  },
+  button2: {
+    backgroundColor: '#4E764E',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 5,
+  },
+  buttonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  bottomNav: {
+    position: 'absolute',
+    bottom: 0,
+    width: '100%',
+    height: 70,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    backgroundColor: '#7FA06F',
+    paddingTop: 10,
+  },
+  centeredContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#000',
+  },
+  infoText: {
+    color: '#fff',
+    fontSize: 16,
+    textAlign: 'center',
   },
 });
 
