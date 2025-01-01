@@ -3,19 +3,19 @@ import React, { useContext } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunity from 'react-native-vector-icons/MaterialCommunityIcons';
-import { AuthContext } from '../context/AuthContext'; // Import AuthContext
+import { AuthContext } from '../context/AuthContext'; 
 
 const ProfileScreen = () => {
   const navigation = useNavigation();
-  const { logOut } = useContext(AuthContext); // Use logOut from AuthContext
+  const { logOut } = useContext(AuthContext);  
 
   // Logout function
   const handleLogout = async () => {
     try {
-      await logOut(); // Call the centralized logout function
+      await logOut();  
       console.log('User signed out');
     } catch (error) {
-      console.error('Error signing out:', error); // Handle sign-out errors
+      console.error('Error signing out:', error);  
     }
   };
 

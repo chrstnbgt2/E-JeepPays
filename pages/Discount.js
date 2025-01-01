@@ -7,20 +7,38 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
- 
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker'; // Import Picker for the select box
+import { Picker } from '@react-native-picker/picker';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import DocumentPicker from 'react-native-document-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation } from '@react-navigation/native';
+import auth from '@react-native-firebase/auth';
+import database from '@react-native-firebase/database';
+import storage from '@react-native-firebase/storage';
+import RNFS from 'react-native-fs'; // File system access for temporary files
 
 const DiscountScreen = () => {
- const navigation =useNavigation();
+  const navigation = useNavigation();
   const [selectedGender, setSelectedGender] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [birthDate, setBirthDate] = useState(new Date());
   const [isDatePickerVisible, setDatePickerVisible] = useState(false);
+  const [formData, setFormData] = useState({
+    firstName: '',
+    middleName: '',
+    lastName: '',
+    address: '',
+    city: '',
+    state: '',
+    zip: '',
+    phone: '',
+    email: '',
+  });
+
+  const handleInputChange = (field, value) => {
+    setFormData({ ...formData, [field]: value });
+  };
 
   const handleBrowseFiles = async () => {
     try {
@@ -44,11 +62,94 @@ const DiscountScreen = () => {
     }
   };
 
+  const uploadFileToStorage = async (file) => {
+    try {
+      // Create a temporary file path for uploading
+      const tempFilePath = `${RNFS.TemporaryDirectoryPath}/${file.name}`;
+      const fileContent = await RNFS.readFile(file.uri, 'base64');
+      await RNFS.writeFile(tempFilePath, fileContent, 'base64');
+
+      // Upload to Firebase Storage
+      const currentUser = auth().currentUser;
+      const uid = currentUser?.uid;
+      const filePath = `discountRequests/${uid}/${file.name}`;
+      const reference = storage().ref(filePath);
+      await reference.putFile(tempFilePath);
+
+      // Get the download URL
+      const fileUrl = await reference.getDownloadURL();
+
+      // Clean up temporary file
+      await RNFS.unlink(tempFilePath);
+
+      return fileUrl;
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      throw error;
+    }
+  };
+
+  const handleSubmit = async () => {
+    const {
+      firstName,
+      middleName,
+      lastName,
+      address,
+      city,
+      state,
+      zip,
+      phone,
+      email,
+    } = formData;
+
+    if (!firstName || !lastName || !address || !city || !state || !zip || !phone || !email || !selectedGender || !selectedFile) {
+      Alert.alert('Error', 'Please fill out all required fields and upload a file.');
+      return;
+    }
+
+    try {
+      const currentUser = auth().currentUser;
+      if (!currentUser) {
+        Alert.alert('Error', 'You must be logged in to submit the form.');
+        return;
+      }
+
+      // Upload file and get its download URL
+      const fileUrl = await uploadFileToStorage(selectedFile);
+
+      // Save form data to Firebase Realtime Database
+      const uid = currentUser.uid;
+      const discountRef = database().ref(`discountRequests/${uid}`).push();
+      await discountRef.set({
+        firstName,
+        middleName,
+        lastName,
+        gender: selectedGender,
+        birthDate: birthDate.toISOString(),
+        address,
+        city,
+        state,
+        zip,
+        phone,
+        email,
+        fileUrl, 
+        status:'Pending',
+        timestamp: Date.now(),
+      });
+
+      Alert.alert('Success', 'Your discount form has been submitted successfully.');
+      navigation.goBack();
+    } catch (error) {
+      console.error('Error submitting discount form:', error);
+      Alert.alert('Error', 'Failed to submit the form. Please try again.');
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Ionicons name="arrow-back" size={24} color="#000" style={styles.backIcon} onPress={() => navigation.goBack()}/>
+        <Ionicons name="arrow-back" size={24} color="#000" style={styles.backIcon} onPress={() => navigation.goBack()} />
         <Text style={styles.headerTitle}>Discount</Text>
       </View>
 
@@ -71,6 +172,8 @@ const DiscountScreen = () => {
               style={styles.input}
               placeholder="Enter first name"
               placeholderTextColor="#000"
+              value={formData.firstName}
+              onChangeText={(text) => handleInputChange('firstName', text)}
             />
           </View>
           <View style={styles.inputGroup}>
@@ -79,6 +182,8 @@ const DiscountScreen = () => {
               style={styles.input}
               placeholder="Enter middle name"
               placeholderTextColor="#000"
+              value={formData.middleName}
+              onChangeText={(text) => handleInputChange('middleName', text)}
             />
           </View>
           <View style={styles.inputGroup}>
@@ -87,6 +192,8 @@ const DiscountScreen = () => {
               style={styles.input}
               placeholder="Enter last name"
               placeholderTextColor="#000"
+              value={formData.lastName}
+              onChangeText={(text) => handleInputChange('lastName', text)}
             />
           </View>
         </View>
@@ -135,6 +242,8 @@ const DiscountScreen = () => {
             style={styles.inputFull}
             placeholder="Enter address"
             placeholderTextColor="#000"
+            value={formData.address}
+            onChangeText={(text) => handleInputChange('address', text)}
           />
         </View>
 
@@ -145,6 +254,8 @@ const DiscountScreen = () => {
               style={styles.input}
               placeholder="Enter City"
               placeholderTextColor="#000"
+              value={formData.city}
+              onChangeText={(text) => handleInputChange('city', text)}
             />
           </View>
           <View style={styles.inputGroup}>
@@ -153,6 +264,8 @@ const DiscountScreen = () => {
               style={styles.input}
               placeholder="Enter state/province"
               placeholderTextColor="#000"
+              value={formData.state}
+              onChangeText={(text) => handleInputChange('state', text)}
             />
           </View>
         </View>
@@ -164,6 +277,8 @@ const DiscountScreen = () => {
               style={styles.input}
               placeholder="Enter ZIP code"
               placeholderTextColor="#000"
+              value={formData.zip}
+              onChangeText={(text) => handleInputChange('zip', text)}
             />
           </View>
           <View style={styles.inputGroup}>
@@ -172,6 +287,8 @@ const DiscountScreen = () => {
               style={styles.input}
               placeholder="Enter phone number"
               placeholderTextColor="#000"
+              value={formData.phone}
+              onChangeText={(text) => handleInputChange('phone', text)}
             />
           </View>
         </View>
@@ -182,6 +299,8 @@ const DiscountScreen = () => {
             style={styles.inputFull}
             placeholder="Enter email"
             placeholderTextColor="#000"
+            value={formData.email}
+            onChangeText={(text) => handleInputChange('email', text)}
           />
         </View>
 
@@ -204,13 +323,14 @@ const DiscountScreen = () => {
         </View>
 
         {/* Submit Button */}
-        <TouchableOpacity style={styles.submitButton}>
+        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
           <Text style={styles.submitButtonText}>Submit</Text>
         </TouchableOpacity>
       </ScrollView>
     </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {

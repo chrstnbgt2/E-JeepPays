@@ -1,5 +1,4 @@
- 
-import React from 'react';
+ import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -12,30 +11,92 @@ import {
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
- 
+import auth from '@react-native-firebase/auth'; // Firebase Authentication
+import database from '@react-native-firebase/database'; // Firebase Realtime Database
+
 const HomeScreen = () => {
-     const navigation = useNavigation();
-            
+  const navigation = useNavigation();
+  const [username, setUsername] = useState(''); // State for the username
+  const [fareRate, setFareRate] = useState('0.00'); // State for fare rate
+  const [walletBalance, setWalletBalance] = useState('0.00'); // State for wallet balance
+  const [accType, setAccType] = useState('Regular'); // State for account type
+
+  useEffect(() => {
+    let userRef;
+    let walletRef;
+    let fareRef;
+
+    const fetchData = async () => {
+      try {
+        // Get the current logged-in user
+        const currentUser = auth().currentUser;
+        if (!currentUser) {
+          console.warn('No user is currently logged in.');
+          return;
+        }
+
+        const uid = currentUser.uid;
+
+        // Real-time listener for user details
+        userRef = database().ref(`users/accounts/${uid}`);
+        userRef.on('value', (userSnapshot) => {
+          if (userSnapshot.exists()) {
+            const userData = userSnapshot.val();
+            setUsername(userData.firstName || '');
+            setWalletBalance(userData.wallet_balance || '0.00');
+            const userAccountType = userData.acc_type || 'Regular';
+            setAccType(userAccountType);
+
+            // Real-time listener for fare rate based on account type
+            fareRef = database().ref(`fares/${userAccountType.toLowerCase()}/firstKm`);
+            fareRef.on('value', (fareSnapshot) => {
+              if (fareSnapshot.exists()) {
+                setFareRate(fareSnapshot.val());
+              } else {
+                console.warn('No fare data found for this account type.');
+              }
+            });
+          } else {
+            console.warn('No user data found for the current UID.');
+          }
+        });
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      }
+    };
+
+    fetchData();
+
+    // Cleanup listeners on unmount
+    return () => {
+      if (userRef) userRef.off('value');
+      if (fareRef) fareRef.off('value');
+    };
+  }, []);
+
   return (
     <View style={styles.container}>
       {/* Header Section */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <Text style={styles.welcomeText}>
-            Welcome! <Text style={styles.username}>@username</Text>
+            Welcome! <Text style={styles.username}>@{username}</Text>
           </Text>
           <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
         </View>
         <View style={styles.walletSection}>
           <View style={styles.walletInfo}>
-            <Text style={styles.walletBalance}>₱ 0.00</Text>
+            <Text style={styles.walletBalance}>₱{walletBalance}</Text>
             <Text style={styles.walletLabel}>Wallet Balance</Text>
           </View>
           <Image
-            source={require('../assets/images/wallet-icon.png')} 
+            source={require('../assets/images/wallet-icon.png')}
             style={styles.walletIcon}
           />
-          <TouchableOpacity style={styles.cashInButton} onPress={() => navigation.navigate('CashIn')}>
+          <TouchableOpacity
+            style={styles.cashInButton}
+            onPress={() => navigation.navigate('CashIn')}
+          >
             <Text style={styles.cashInText}>Cash In</Text>
           </TouchableOpacity>
         </View>
@@ -46,7 +107,7 @@ const HomeScreen = () => {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Dashboard</Text>
           <Image
-            source={require('../assets/images/line.png')} 
+            source={require('../assets/images/line.png')}
             style={styles.lineImage}
           />
         </View>
@@ -58,8 +119,8 @@ const HomeScreen = () => {
             imageStyle={styles.cardImageBackground}
           >
             <Ionicons name="cash-outline" size={40} color="#FFFFFF" />
-            <Text style={styles.cardValue}>14.00</Text>
-            <Text style={styles.cardLabel}>Fare Rate</Text>
+            <Text style={styles.cardValue}>₱{fareRate}</Text>
+            <Text style={styles.cardLabel}>{accType} Fare Rate</Text>
           </ImageBackground>
 
           {/* Distance Travelled Card */}
@@ -74,11 +135,11 @@ const HomeScreen = () => {
           </ImageBackground>
         </View>
 
-        {/* Transactions Section */}
-        <View style={styles.sectionHeader}>
+            {/* Transactions Section */}
+            <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Transactions</Text>
           <Image
-            source={require('../assets/images/line.png')} // Replace with your line.png path
+            source={require('../assets/images/line.png')}
             style={styles.lineImage}
           />
         </View>
@@ -87,12 +148,10 @@ const HomeScreen = () => {
           <View style={styles.transactionItem}></View>
         </View>
       </ScrollView>
-
-     
-
     </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {
@@ -179,7 +238,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 20,
-    
   },
   card: {
     borderRadius: 15,
@@ -213,23 +271,6 @@ const styles = StyleSheet.create({
     height: 50,
     marginBottom: 10,
     elevation: 2,
-  },
-  bottomNav: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: '#466B66',
-    height: 70,
-    borderTopLeftRadius: 15,
-    borderTopRightRadius: 15,
-  },
-  navItem: {
-    alignItems: 'center',
-  },
-  navText: {
-    fontSize: 12,
-    color: '#FFFFFF',
-    marginTop: 5,
   },
 });
 

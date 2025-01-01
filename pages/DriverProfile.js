@@ -1,12 +1,24 @@
 import { useNavigation } from '@react-navigation/native';
-import React from 'react';
+import React, { useContext } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunity from 'react-native-vector-icons/MaterialCommunityIcons';
+import { AuthContext } from '../context/AuthContext'; 
 
 
 const ProfileScreenDriver = () => {
-    const navigation = useNavigation();
+  const navigation = useNavigation();
+   const { logOut } = useContext(AuthContext);  
+  
+    // Logout function
+    const handleLogout = async () => {
+      try {
+        await logOut();  
+        console.log('User signed out');
+      } catch (error) {
+        console.error('Error signing out:', error);  
+      }
+    };
   
     
   return (
@@ -40,9 +52,9 @@ const ProfileScreenDriver = () => {
       </View>
 
       {/* Logout Button */}
-      <TouchableOpacity style={styles.logoutButton}>
-        <Text style={styles.logoutText}>Log out</Text>
-      </TouchableOpacity>
+         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+             <Text style={styles.logoutText}>Log out</Text>
+         </TouchableOpacity>
 
    
     </View>

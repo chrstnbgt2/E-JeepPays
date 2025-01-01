@@ -1,17 +1,62 @@
-import React from 'react';
-import { StyleSheet, View, Text, Image, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { StyleSheet, View, Text, Image, ActivityIndicator } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
+import auth from '@react-native-firebase/auth';
+import database from '@react-native-firebase/database';
 
 const CheckSeatScreen = () => {
-     const navigation =useNavigation();
+  const navigation = useNavigation();
+  const [jeepDetails, setJeepDetails] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchJeepDetails = async () => {
+      try {
+        setLoading(true);
+
+        // Get the current user's UID
+        const currentUser = auth().currentUser;
+        if (!currentUser) {
+          console.error('No user is logged in');
+          setLoading(false);
+          return;
+        }
+
+        const uid = currentUser.uid;
+
+        // Fetch jeepney details where the driver field matches the current UID
+        const jeepneysRef = database().ref('jeepneys');
+        const snapshot = await jeepneysRef.orderByChild('driver').equalTo(uid).once('value');
+
+        if (snapshot.exists()) {
+          // Extract the first jeepney (in case there are multiple, but there should ideally be only one)
+          const jeepData = Object.values(snapshot.val())[0];
+          setJeepDetails(jeepData);
+        } else {
+          console.warn('No jeepney assigned to this driver');
+        }
+      } catch (error) {
+        console.error('Error fetching jeepney details:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchJeepDetails();
+  }, []);
 
   return (
-    
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Ionicons name="arrow-back" size={24} color="#000" style={styles.backIcon} onPress={() => navigation.goBack()} />
+        <Ionicons
+          name="arrow-back"
+          size={24}
+          color="#000"
+          style={styles.backIcon}
+          onPress={() => navigation.goBack()}
+        />
         <Text style={styles.headerTitle}>Check Seat</Text>
       </View>
 
@@ -21,30 +66,40 @@ const CheckSeatScreen = () => {
 
         {/* Jeep Image */}
         <View style={styles.imageContainer}>
-          <Image
-           source={require('../assets/images/bus.png')}
-            style={styles.jeepImage}
-          />
+          <Image source={require('../assets/images/bus.png')} style={styles.jeepImage} />
         </View>
 
         {/* Details Card */}
         <View style={styles.card}>
           <View style={styles.cardHeader} />
           <View style={styles.cardContent}>
-            <Text style={styles.detailText}>
-              <Text style={styles.bold}>Jeep No.:</Text> __________
-            </Text>
-            <Text style={styles.detailText}>
-              <Text style={styles.bold}>Capacity:</Text> __________
-            </Text>
-            <Text style={styles.detailText}>
-              <Text style={styles.bold}>Availability:</Text> __________
-            </Text>
+            {loading ? (
+              <ActivityIndicator size="large" color="#0000ff" />
+            ) : jeepDetails ? (
+              <>
+                <View style={styles.detailItem}>
+                  <Text style={styles.bold}>Jeep No.:</Text>
+                  <Text style={styles.detailValue}>{jeepDetails.plateNumber || 'N/A'}</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <Text style={styles.bold}>Capacity:</Text>
+                  <Text style={styles.detailValue}>{jeepDetails.capacity || 'N/A'}</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <Text style={styles.bold}>Route:</Text>
+                  <Text style={styles.detailValue}>{jeepDetails.route || 'N/A'}</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <Text style={styles.bold}>Status:</Text>
+                  <Text style={styles.detailValue}>{jeepDetails.status || 'N/A'}</Text>
+                </View>
+              </>
+            ) : (
+              <Text style={styles.noDetailsText}>No jeepney details available.</Text>
+            )}
           </View>
         </View>
       </View>
-
-   
     </View>
   );
 };
@@ -103,30 +158,31 @@ const styles = StyleSheet.create({
   cardContent: {
     padding: 20,
   },
-  detailText: {
-    fontSize: 24,
-    marginBottom: 10,
-    color: '#000',
+  detailItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',  
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#CCC',
+    paddingVertical: 15,
   },
   bold: {
     fontWeight: 'bold',
+    fontSize: 18,
+    color: '#000',
+    flex: 1,
   },
-  bottomNav: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: '#466B66',
-    height: 70,
-    borderTopLeftRadius: 15,
-    borderTopRightRadius: 15,
+  detailValue: {
+    fontSize: 18,
+    color: '#000',
+    textAlign: 'center',
+    flex: 1,  
   },
-  navItem: {
-    alignItems: 'center',
-  },
-  navText: {
-    fontSize: 12,
-    color: '#FFFFFF',
-    marginTop: 5,
+  noDetailsText: {
+    fontSize: 16,
+    color: '#888',
+    textAlign: 'center',
+    marginTop: 10,
   },
 });
 

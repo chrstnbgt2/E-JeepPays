@@ -23,6 +23,7 @@ const CreateConductor = () => {
     password: '',
     cpassword: '',
   });
+  const [loading, setLoading] = useState(false);
 
   const handleInputChange = (field, value) => {
     setForm({ ...form, [field]: value });
@@ -51,8 +52,9 @@ const CreateConductor = () => {
       return;
     }
 
+    setLoading(true);
     try {
-      // Get the current logged-in user's UID
+      // Ensure the current logged-in user is valid
       const currentUser = auth().currentUser;
       if (!currentUser) {
         Alert.alert('Error', 'You must be logged in to create a conductor.');
@@ -60,12 +62,12 @@ const CreateConductor = () => {
       }
       const creatorUid = currentUser.uid;
 
-      // Generate a unique key for the conductor
-      const newConductorRef = database().ref('users/accounts').push();
-      const userId = newConductorRef.key;
+      // Create conductor account in Firebase Authentication
+      const userCredential = await auth().createUserWithEmailAndPassword(email, password);
+      const userId = userCredential.user.uid;
 
-      // Save conductor data in the Realtime Database
-      await newConductorRef.set({
+      // Save conductor data in Firebase Realtime Database
+      await database().ref(`/users/accounts/${userId}`).set({
         firstName,
         middleName,
         lastName,
@@ -73,8 +75,8 @@ const CreateConductor = () => {
         phoneNumber,
         role: 'conductor',
         wallet_balance: 0, // Default wallet balance
-        creatorUid, // Add creator's UID
-        status:'Active',
+        creatorUid, // The UID of the logged-in driver
+        status: 'Active',
         timestamp: Date.now(),
       });
 
@@ -82,7 +84,9 @@ const CreateConductor = () => {
       navigation.goBack(); // Navigate back to the previous screen
     } catch (error) {
       console.error('Error creating conductor account:', error);
-      Alert.alert('Error', 'Failed to create account. Please try again.');
+      Alert.alert('Error', `Failed to create account: ${error.message}`);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -92,10 +96,10 @@ const CreateConductor = () => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Conductor</Text>
+        <Text style={styles.headerTitle}>Create Conductor</Text>
       </View>
       <View style={styles.content}>
-        <Text style={styles.title}>Create an account</Text>
+        <Text style={styles.title}>Create a Conductor Account</Text>
         <TextInput
           style={styles.input}
           placeholder="First Name"
@@ -149,8 +153,14 @@ const CreateConductor = () => {
           value={form.cpassword}
           onChangeText={(text) => handleInputChange('cpassword', text)}
         />
-        <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
-          <Text style={styles.submitButtonText}>Create account</Text>
+        <TouchableOpacity
+          style={[styles.submitButton, loading && styles.disabledButton]}
+          onPress={handleSubmit}
+          disabled={loading}
+        >
+          <Text style={styles.submitButtonText}>
+            {loading ? 'Creating...' : 'Create Account'}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -202,6 +212,9 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 8,
     alignItems: 'center',
+  },
+  disabledButton: {
+    backgroundColor: '#A5D6A7',
   },
   submitButtonText: {
     color: '#FFF',

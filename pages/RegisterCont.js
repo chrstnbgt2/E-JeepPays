@@ -85,6 +85,7 @@ const RegisterScreen2 = () => {
         email: sanitizeInput(email),
         role: 'user', // Defined role
         wallet_balance: 0, // Initial wallet balance
+        acc_type:'Regular',
         createdAt: new Date().toISOString(), // Save timestamp
       });
 

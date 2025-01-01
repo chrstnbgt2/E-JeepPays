@@ -1,64 +1,107 @@
-import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
-import QRCode from 'react-native-qrcode-svg'; // Ensure this library is installed
-import Ionicons from 'react-native-vector-icons/Ionicons';
+import React, { useState, useEffect, useRef } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, Alert } from 'react-native';
+import QRCode from 'react-native-qrcode-svg';
 import { useNavigation } from '@react-navigation/native';
- 
+import auth from '@react-native-firebase/auth';
+import database from '@react-native-firebase/database';
+import ViewShot from 'react-native-view-shot';
+import RNFS from 'react-native-fs';
 
 const MyQRScreen = () => {
   const navigation = useNavigation();
+  const viewShotRef = useRef();
+  const [name, setName] = useState('');
+  const [maskedPhone, setMaskedPhone] = useState('');
+  const [username, setUsername] = useState('');
+  const [qrValue, setQrValue] = useState('');
 
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        const currentUser = auth().currentUser;
+        if (!currentUser) {
+          console.warn('No user is currently logged in.');
+          return;
+        }
 
+        const uid = currentUser.uid;
+        setQrValue(uid);
 
-  const qrValue = 'https://example.com'; // Replace with your dynamic content
-  const userName = 'Daisy Miller';
-  const mobileNumber = '09XXXXXXXXX';
-  const username = '@username';
+        const userRef = database().ref(`users/accounts/${uid}`);
+        const snapshot = await userRef.once('value');
+
+        if (snapshot.exists()) {
+          const userData = snapshot.val();
+          const firstName = userData.firstName || '';
+          const lastNameInitial = userData.lastName ? userData.lastName.charAt(0) : '';
+          setName(`${firstName} ${lastNameInitial}.`);
+          const phoneNumber = userData.phoneNumber || '';
+          const masked = phoneNumber.replace(/(\d{2})\d{5}(\d{2})/, '$1XXXXX$2');
+          setMaskedPhone(masked);
+          setUsername(`@${firstName}`);
+        } else {
+          console.warn('No user data found.');
+        }
+      } catch (error) {
+        console.error('Error fetching user data:', error);
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
+  const saveQrCode = async () => {
+    try {
+      const uri = await viewShotRef.current.capture();
+      const filePath = `${RNFS.DownloadDirectoryPath}/my-qr-code.png`;
+
+      await RNFS.moveFile(uri, filePath);
+      Alert.alert('Success', `QR code saved to ${filePath}`);
+    } catch (error) {
+      console.error('Error saving QR code:', error);
+      Alert.alert('Error', 'Failed to save QR code. Please try again.');
+    }
+  };
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>My QR</Text>
       </View>
 
-      {/* QR Card */}
-      <View style={styles.card}>
-        <Text style={styles.name}>{userName}</Text>
-        <Text style={styles.details}>Mobile No.: {mobileNumber}</Text>
-        <Text style={styles.details}>Username: {username}</Text>
+      {/* Wrap the entire container in ViewShot */}
+      <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1 }}>
+        <View style={styles.card}>
+          <Text style={styles.name}>{name}</Text>
+          <Text style={styles.details}>Mobile No.: {maskedPhone}</Text>
+          <Text style={styles.details}>Username: {username}</Text>
+          <View style={styles.qrContainer}>
+            {qrValue ? (
+              <QRCode
+                value={qrValue}
+                size={300}
+                logo={require('../assets/images/qrlogo.png')}
+                logoSize={80}
+                logoBackgroundColor="transparent"
+                logoMargin={-20}
+                quietZone={10}
+              />
+            ) : (
+              <Text style={styles.loadingText}>Generating QR...</Text>
+            )}
+          </View>
+          <Text style={styles.note}>Transfer fees may apply</Text>
+        </View>
+      </ViewShot>
 
-        {/* QR Code */}
-     
-        <View style={styles.qrContainer}>
-  <QRCode
-    value={qrValue}
-    size={300}  
-    logo={require('../assets/images/qrlogo.png')}  
-    logoSize={80} 
-    logoBackgroundColor="transparent" 
-    logoMargin={-20}  
-    quietZone={10}  
-  />
-</View>
-
-        
-
-        <Text style={styles.note}>Transfer fees may apply</Text>
-      </View>
-
-      {/* Action Buttons */}
       <View style={styles.actionButtons}>
         <TouchableOpacity style={styles.button1} onPress={() => navigation.navigate('Share')}>
           <Text style={styles.buttonText}>QR Code Share</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.button2}>
+        <TouchableOpacity style={styles.button2} onPress={saveQrCode}>
           <Text style={styles.buttonText}>Save</Text>
         </TouchableOpacity>
       </View>
-
-    
-
     </View>
   );
 };
@@ -104,72 +147,41 @@ const styles = StyleSheet.create({
     marginVertical: 25,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'white', // Ensures a clean background around the QR code
-    padding: 10, // Add padding for the QR code container
-    borderRadius: 10, // Smooth corners
+    backgroundColor: 'white',
+    padding: 10,
+    borderRadius: 10,
   },
-  
   note: {
     fontSize: 15,
     color: '#74A059',
     marginTop: 10,
-    fontWeight: 'bold', // Makes the text bold
+    fontWeight: 'bold',
   },
-  
   actionButtons: {
     flexDirection: 'row',
-    justifyContent: 'space-between', // Use 'space-between' to ensure even spacing
+    justifyContent: 'space-between',
     marginHorizontal: 20,
     marginTop: 20,
- 
   },
   button1: {
-    flex: 1, // Equal width for all buttons
+    flex: 1,
     backgroundColor: '#74A059',
     borderRadius: 10,
     paddingVertical: 10,
-    marginHorizontal: 5, // Add spacing between buttons
+    marginHorizontal: 5,
     alignItems: 'center',
   },
   button2: {
-    flex: 1, // Equal width for all buttons
+    flex: 1,
     backgroundColor: '#4E764E',
     borderRadius: 10,
     paddingVertical: 10,
-    marginHorizontal: 5, // Add spacing between buttons
+    marginHorizontal: 5,
     alignItems: 'center',
   },
-  
   buttonText: {
     color: '#FFF',
     fontSize: 16,
-    fontWeight: 'bold',
-  },
-  bottomNav: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: '#466B66',
-    height: 70,
-    borderTopLeftRadius: 15,
-    borderTopRightRadius: 15,
-    marginTop: 'auto',
-  },
-  navItem: {
-    alignItems: 'center',
-  },
-  activeNavItem: {
-    alignItems: 'center',
-  },
-  navText: {
-    fontSize: 12,
-    color: '#FFFFFF',
-    marginTop: 5,
-  },
-  activeNavText: {
-    fontSize: 12,
-    color: '#8FCB81',
-    marginTop: 5,
     fontWeight: 'bold',
   },
 });

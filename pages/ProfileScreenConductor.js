@@ -1,14 +1,26 @@
 import { useNavigation } from '@react-navigation/native';
-import React from 'react';
+import React, { useContext } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunity from 'react-native-vector-icons/MaterialCommunityIcons';
+import { AuthContext } from '../context/AuthContext'; 
 
 
 const ProfileScreenConductor = () => {
     const navigation = useNavigation();
+   const { logOut } = useContext(AuthContext);  
   
     
+  // Logout function
+  const handleLogout = async () => {
+    try {
+      await logOut();  
+      console.log('User signed out');
+    } catch (error) {
+      console.error('Error signing out:', error);  
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -35,11 +47,11 @@ const ProfileScreenConductor = () => {
         <Ionicons name="chevron-forward-outline" size={20} color="#000" />
       </View>
 
-      {/* Logout Button */}
-      <TouchableOpacity style={styles.logoutButton}>
-        <Text style={styles.logoutText}>Log out</Text>
-      </TouchableOpacity>
-
+        {/* Logout Button */}
+           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+               <Text style={styles.logoutText}>Log out</Text>
+           </TouchableOpacity>
+  
    
     </View>
   );
