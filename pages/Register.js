@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -9,13 +9,24 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
+  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
- 
 
 const RegisterScreen = () => {
-      const navigation = useNavigation();
-    
+  const navigation = useNavigation();
+  const [firstName, setFirstName] = useState('');
+  const [middleName, setMiddleName] = useState('');
+  const [lastName, setLastName] = useState('');
+
+  const handleNext = () => {
+    if (!firstName || !lastName) {
+      Alert.alert('Error', 'First and Last Name are required.');
+      return;
+    }
+    navigation.navigate('Next', { firstName, middleName, lastName });
+  };
+
   return (
     <KeyboardAvoidingView
       style={styles.container}
@@ -45,27 +56,35 @@ const RegisterScreen = () => {
             placeholder="First Name"
             placeholderTextColor="#9FA5AA"
             style={styles.input}
+            value={firstName}
+            onChangeText={setFirstName}
           />
           <TextInput
             placeholder="Middle Name (Optional)"
             placeholderTextColor="#9FA5AA"
             style={styles.input}
+            value={middleName}
+            onChangeText={setMiddleName}
           />
           <TextInput
             placeholder="Last Name"
             placeholderTextColor="#9FA5AA"
             style={styles.input}
+            value={lastName}
+            onChangeText={setLastName}
           />
 
           {/* Next Button */}
-          <TouchableOpacity style={styles.nextButton}onPress={() => navigation.navigate('Next')}>
+          <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
             <Text style={styles.nextButtonText}>Next</Text>
           </TouchableOpacity>
 
           {/* Login Link */}
           <Text style={styles.loginText}>
             Already have an account?{' '}
-            <Text style={styles.loginLink}   onPress={() => navigation.navigate('Login')}>Login</Text>
+            <Text style={styles.loginLink} onPress={() => navigation.navigate('Login')}>
+              Login
+            </Text>
           </Text>
         </View>
 

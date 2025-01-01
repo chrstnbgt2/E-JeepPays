@@ -2,8 +2,16 @@
  * @format
  */
 
-import {AppRegistry} from 'react-native';
+import React from 'react';
+import { AppRegistry } from 'react-native';
+import { name as appName } from './app.json';
 import App from './App';
-import {name as appName} from './app.json';
+import { AuthProvider } from './context/AuthContext'; // Import AuthProvider
 
-AppRegistry.registerComponent(appName, () => App);
+const RootApp = () => (
+  <AuthProvider>
+    <App />
+  </AuthProvider>
+);
+
+AppRegistry.registerComponent(appName, () => RootApp);

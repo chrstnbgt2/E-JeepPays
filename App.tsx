@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useContext } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import Ionicons from 'react-native-vector-icons/Ionicons'; 
-import { StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { ActivityIndicator, View, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import Ionicons from 'react-native-vector-icons/Ionicons';
+import { AuthContext } from './context/AuthContext';
 
 // Import screens
 import LoginRegister from './pages/LoginRegister';
@@ -29,6 +30,7 @@ import QRCodeScannerScreen from './pages/ScanQR';
 import ProfileScreenConductor from './pages/ProfileScreenConductor';
 import MyQRScreenShareConductor from './pages/ConductorShareQr';
 import GeneratedQRPage from './pages/GenerateQr';
+
 // Navigators
 const AuthStack = createStackNavigator();
 const UserTabs = createBottomTabNavigator();
@@ -85,36 +87,16 @@ const DriverNavigator = () => (
         if (route.name === 'Seat') iconName = 'car';
         if (route.name === 'Profile') iconName = 'person';
         if (route.name === 'History') iconName = 'time';
-        // Skip rendering the middle tab's icon (handled by custom tabBarButton)
-        if (route.name === 'MiddleTab') return null;
-
         return <Ionicons name={iconName} size={size} color={color} />;
       },
       tabBarActiveTintColor: '#A5BE7D',
       tabBarInactiveTintColor: '#FFFFFF',
     })}
   >
-    <DriverTabs.Screen name="DashboardDriver" component={HomeScreenDriver} options={{ tabBarLabel: 'home' }} />
-    <DriverTabs.Screen name="Seat" component={BusDetail} options={{ tabBarLabel: 'Seat' }} />
-
-    {/* Custom Middle Tab with Image */}
-    <DriverTabs.Screen
-      name="MiddleTab"
-      component={Dashboard}
-      options={{
-        tabBarButton: () => (
-          <TouchableOpacity style={styles.middleTab}>
-            <Image
-              source={require('./assets/images/qrlogo.png')} // Replace with your custom image
-              style={styles.middleImage}
-            />
-          </TouchableOpacity>
-        ),
-      }}
-    />
-
-    <DriverTabs.Screen name="History" component={History} options={{ tabBarLabel: 'History' }} />
-    <DriverTabs.Screen name="Profile" component={ProfileScreenDriver} options={{ tabBarLabel: 'Profile' }} />
+    <DriverTabs.Screen name="DashboardDriver" component={HomeScreenDriver} />
+    <DriverTabs.Screen name="Seat" component={BusDetail} />
+    <DriverTabs.Screen name="History" component={History} />
+    <DriverTabs.Screen name="Profile" component={ProfileScreenDriver} />
   </DriverTabs.Navigator>
 );
 
@@ -131,59 +113,45 @@ const ConductorNavigator = () => (
         if (route.name === 'ScanQR') iconName = 'scan-circle-outline';
         if (route.name === 'History') iconName = 'time';
         if (route.name === 'Profile') iconName = 'person';
-
         return <Ionicons name={iconName} size={size} color={color} />;
       },
       tabBarActiveTintColor: '#A5BE7D',
       tabBarInactiveTintColor: '#FFFFFF',
     })}
   >
-    <ConductorTabs.Screen name="DashboardConductor" component={HomeScreenConductor} options={{ tabBarLabel: 'home' }} />
+    <ConductorTabs.Screen name="DashboardConductor" component={HomeScreenConductor} />
     <ConductorTabs.Screen name="Tracker" component={Tracker} />
     <ConductorTabs.Screen name="ScanQR" component={QRCodeScannerScreen} />
-    <ConductorTabs.Screen name="History" component={History} options={{ tabBarLabel: 'History' }} />
-    <ConductorTabs.Screen name="Profile" component={ProfileScreenConductor} options={{ tabBarLabel: 'Profile' }} />
-
+    <ConductorTabs.Screen name="History" component={History} />
+    <ConductorTabs.Screen name="Profile" component={ProfileScreenConductor} />
   </ConductorTabs.Navigator>
 );
- 
+
 /** Root Navigator */
 const App = () => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false); // Track login state
-  const [role, setRole] = useState(null);
+  const { isLoggedIn, role, loading } = useContext(AuthContext);
 
-  useEffect(() => {
-    const checkLoginStatus = async () => {
-      // Simulated login status and role fetch
-      const loggedIn = true; // Change to true for testing logged-in flow
-      const userRole = 'driver'; // Change to 'user', 'driver', or 'conductor' for testing
-      setIsLoggedIn(loggedIn);
-      setRole(userRole);
-    };
-
-    checkLoginStatus();
-  }, []);
-
-  if (!isLoggedIn) {
+  if (loading) {
     return (
-      <NavigationContainer>
-        <AuthNavigator />
-      </NavigationContainer>
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#466B66" />
+      </View>
     );
   }
 
   return (
     <NavigationContainer>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
-        {role === 'user' ? (
+        {!isLoggedIn ? (
+          <RootStack.Screen name="Auth" component={AuthNavigator} />
+        ) : role === 'user' ? (
           <RootStack.Screen name="User" component={UserNavigator} />
         ) : role === 'driver' ? (
           <RootStack.Screen name="Driver" component={DriverNavigator} />
-        ) : role === 'conductor' ? (
-          <RootStack.Screen name="Conductor" component={ConductorNavigator} />
         ) : (
-          <RootStack.Screen name="Auth" component={AuthNavigator} />
+          <RootStack.Screen name="Conductor" component={ConductorNavigator} />
         )}
+
         {/* Additional Screens Accessible from All Roles */}
         <RootStack.Screen name="Discount" component={DiscountScreen} />
         <RootStack.Screen name="CashIn" component={CashInScreen} />
@@ -207,22 +175,10 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
     paddingTop: 5,
   },
-  middleTab: {
-    position: 'absolute',
-    top: -2,  
-    left:10,
-    alignItems: 'center',
+  loadingContainer: {
+    flex: 1,
     justifyContent: 'center',
-    height: 60,
-    width: 60,
-    backgroundColor: '#FFF', 
-    borderRadius: 30,  
-    elevation: 5,  
-  },
-  middleImage: {
-    height: 60,
-    width: 60,
-    resizeMode: 'contain',
+    alignItems: 'center',
   },
 });
 

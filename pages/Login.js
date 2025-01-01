@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import {
   StyleSheet,
   View,
@@ -11,18 +11,25 @@ import {
   Platform,
   Keyboard,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
-
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
+import auth from '@react-native-firebase/auth';
+import database from '@react-native-firebase/database';
+import { AuthContext } from '../context/AuthContext'; 
 
 const LoginScreen = () => {
   const navigation = useNavigation();
-
+  const { setAuthState } = useContext(AuthContext); // Use the AuthContext to set authentication state
+  const { setIsLoggedIn, setRole } = useContext(AuthContext); // Ensure these are exposed in AuthContext
+  
+  // Define state
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () =>
@@ -38,11 +45,42 @@ const LoginScreen = () => {
     };
   }, []);
 
-  const handleLogin = () => {
- 
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter both email and password.');
+      return;
+    }
   
-    navigation.navigate('Home');
+    setIsLoading(true);
   
+    try {
+      const userCredential = await auth().signInWithEmailAndPassword(email, password);
+      const userId = userCredential.user.uid;
+  
+      // Fetch user's role from Realtime Database
+      const roleSnapshot = await database().ref(`/users/passengers/${userId}/role`).once('value');
+      const userRole = roleSnapshot.val();
+  
+      if (userRole) {
+        // Update the global auth state
+        setAuthState({
+          isLoggedIn: true,
+          role: userRole,
+        });
+      } else {
+        Alert.alert('Error', 'User role not found. Please contact support.');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Login failed. Please try again.');
+      console.error('Login error:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+
+  const togglePasswordVisibility = () => {
+    setIsPasswordVisible((prevState) => !prevState);
   };
 
   return (
@@ -70,9 +108,6 @@ const LoginScreen = () => {
           />
           <Text style={styles.title}>LOGIN</Text>
 
-          {/* Error Message */}
-          {error ? <Text style={styles.errorText}>{error}</Text> : null}
-
           {/* Email Input */}
           <View style={styles.inputContainer}>
             <Ionicons name="person-outline" size={20} color="#9FA5AA" style={styles.icon} />
@@ -94,11 +129,18 @@ const LoginScreen = () => {
               placeholder="Password"
               placeholderTextColor="#9FA5AA"
               style={styles.input}
-              secureTextEntry
+              secureTextEntry={!isPasswordVisible}
               value={password}
               onChangeText={setPassword}
             />
-            <Ionicons name="eye-off-outline" size={20} color="#9FA5AA" style={styles.icon} />
+            <TouchableOpacity onPress={togglePasswordVisibility}>
+              <Ionicons
+                name={isPasswordVisible ? 'eye-outline' : 'eye-off-outline'}
+                size={20}
+                color="#9FA5AA"
+                style={styles.icon}
+              />
+            </TouchableOpacity>
           </View>
 
           {/* Forgot Password */}
@@ -107,14 +149,24 @@ const LoginScreen = () => {
           </TouchableOpacity>
 
           {/* Login Button */}
-          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-            <Text style={styles.loginButtonText}>Login</Text>
+          <TouchableOpacity
+            style={[styles.loginButton, isLoading && { backgroundColor: '#ccc' }]}
+            onPress={handleLogin}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#FFF" />
+            ) : (
+              <Text style={styles.loginButtonText}>Login</Text>
+            )}
           </TouchableOpacity>
 
           {/* Register Link */}
           <Text style={styles.registerText}>
             Don't have an account yet?{' '}
-            <Text style={styles.registerLink} onPress={() => navigation.navigate('Register')}>Register</Text>
+            <Text style={styles.registerLink} onPress={() => navigation.navigate('Register')}>
+              Register
+            </Text>
           </Text>
         </View>
       </ScrollView>
@@ -213,11 +265,6 @@ const styles = StyleSheet.create({
   registerLink: {
     color: '#8FCB81',
     textDecorationLine: 'underline',
-  },
-  errorText: {
-    color: 'red',
-    fontSize: 14,
-    marginBottom: 10,
   },
   bottomCurve: {
     position: 'absolute',

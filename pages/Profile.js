@@ -3,12 +3,23 @@ import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunity from 'react-native-vector-icons/MaterialCommunityIcons';
-
+import auth from '@react-native-firebase/auth'; // Import Firebase Auth
 
 const ProfileScreen = () => {
-    const navigation = useNavigation();
-  
-    
+  const navigation = useNavigation();
+
+  // Logout function
+  const handleLogout = async () => {
+    try {
+      await auth().signOut(); // Sign the user out
+      console.log('User signed out');
+      // Navigate to the login screen after logout
+      navigation.navigate('Login');  
+    } catch (error) {
+      console.error('Error signing out:', error); // Handle sign-out errors
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -22,7 +33,7 @@ const ProfileScreen = () => {
         <Text style={styles.menuText}>Account Information</Text>
         <Ionicons name="chevron-forward-outline" size={20} color="#000" />
       </View>
-      <View style={styles.menuItem} >
+      <View style={styles.menuItem}>
         <MaterialCommunity name="brightness-percent" size={24} color="#000" />
         <Text style={styles.menuText}>Discount</Text>
         <Ionicons name="chevron-forward-outline" size={20} color="#000" onPress={() => navigation.navigate('Discount')} />
@@ -40,11 +51,9 @@ const ProfileScreen = () => {
       </View>
 
       {/* Logout Button */}
-      <TouchableOpacity style={styles.logoutButton}>
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
         <Text style={styles.logoutText}>Log out</Text>
       </TouchableOpacity>
-
-   
     </View>
   );
 };
@@ -91,44 +100,16 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     paddingVertical: 15,
     marginHorizontal: 20,
-    marginBottom: 80,  
+    marginBottom: 80,
     alignItems: 'center',
-    position: 'absolute', 
-    bottom: 40,  
-    left: 20,  
-    right: 20,  
+    position: 'absolute',
+    bottom: 40,
+    left: 20,
+    right: 20,
   },
-  
   logoutText: {
     color: '#FFF',
     fontSize: 16,
-    fontWeight: 'bold',
-  },
-  bottomNav: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: '#466B66',
-    height: 70,
-    borderTopLeftRadius: 15,
-    borderTopRightRadius: 15,
-    marginTop: 'auto',
-  },
-  navItem: {
-    alignItems: 'center',
-  },
-  activeNavItem: {
-    alignItems: 'center',
-  },
-  navText: {
-    fontSize: 12,
-    color: '#FFFFFF',
-    marginTop: 5,
-  },
-  activeNavText: {
-    fontSize: 12,
-    color: '#8FCB81',
-    marginTop: 5,
     fontWeight: 'bold',
   },
 });
