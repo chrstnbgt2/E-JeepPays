@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,44 +6,57 @@ import {
   FlatList,
   TouchableOpacity,
   Modal,
+  Alert,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
-
-// Dummy data for accounts
-const accounts = [
-    {
-      id: '1',
-      firstName: 'Mark',
-      middleName: 'Anthony',
-      lastName: 'Cruz',
-      email: 'mark.cruz@example.com',
-      phoneNumber: '1234567890',
-      password:'12345',
-      status: 'Active',
-      color: '#4CAF50',
-    },
-    {
-      id: '2',
-      firstName: 'John',
-      middleName: '',
-      lastName: 'Lopez',
-      email: 'john.lopez@example.com',
-      phoneNumber: '0987654321',
-      password:'12345',
-      status: 'Inactive',
-      color: '#FF9800',
-    },
-  ];
-  
+import database from '@react-native-firebase/database';
+import auth from '@react-native-firebase/auth';
 
 const Conductors = () => {
- 
   const [modalVisible, setModalVisible] = useState(false);
   const [statusModalVisible, setStatusModalVisible] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState(null);
-  const [accountList, setAccountList] = useState(accounts);
+  const [accountList, setAccountList] = useState([]);
   const navigation = useNavigation();
+
+  useEffect(() => {
+    const fetchConductors = async () => {
+      try {
+        const currentUser = auth().currentUser;
+        if (!currentUser) {
+          Alert.alert('Error', 'You must be logged in to view conductors.');
+          return;
+        }
+
+        const driverUid = currentUser.uid;
+
+        // Set up a real-time listener
+        const conductorRef = database()
+          .ref('users/accounts')
+          .orderByChild('creatorUid')
+          .equalTo(driverUid);
+
+        const onValueChange = conductorRef.on('value', (snapshot) => {
+          const conductors = [];
+          snapshot.forEach((childSnapshot) => {
+            const conductor = { id: childSnapshot.key, ...childSnapshot.val() };
+            conductors.push(conductor);
+          });
+
+          setAccountList(conductors); // Update the state with the latest data
+        });
+
+        // Clean up the listener when the component unmounts
+        return () => conductorRef.off('value', onValueChange);
+      } catch (error) {
+        console.error('Error fetching conductors:', error);
+        Alert.alert('Error', 'Failed to fetch conductors.');
+      }
+    };
+
+    fetchConductors();
+  }, []);
 
   const openModal = (account) => {
     setSelectedAccount(account);
@@ -57,35 +70,41 @@ const Conductors = () => {
 
   const openStatusModal = () => {
     setStatusModalVisible(true);
-    setModalVisible(false); // Close the main modal
+    setModalVisible(false);
   };
 
   const closeStatusModal = () => {
     setStatusModalVisible(false);
   };
 
-  const updateStatus = (newStatus, newColor) => {
-    setAccountList((prevAccounts) =>
-      prevAccounts.map((account) =>
-        account.id === selectedAccount.id
-          ? { ...account, status: newStatus, color: newColor }
-          : account
-      )
-    );
-    closeStatusModal();
+  const updateStatus = async (newStatus) => {
+    try {
+      // Update the status in Firebase Realtime Database
+      await database().ref(`users/accounts/${selectedAccount.id}`).update({
+        status: newStatus,
+      });
+
+      Alert.alert('Success', `Status updated to ${newStatus}`);
+      closeStatusModal();
+    } catch (error) {
+      console.error('Error updating status:', error);
+      Alert.alert('Error', 'Failed to update status.');
+    }
   };
 
   const renderItem = ({ item }) => (
     <View style={styles.accountCard}>
       <View style={styles.accountInfo}>
-        <View style={[styles.statusDot, { backgroundColor: item.color }]} />
+        <View
+          style={[
+            styles.statusDot,
+            { backgroundColor: item.status === 'Active' ? '#4CAF50' : '#FF9800' },
+          ]}
+        />
         <Text style={styles.accountName}>{`${item.firstName} ${item.lastName}`}</Text>
-        <Text style={styles.accountStatus}>({item.status})</Text>
+        <Text style={styles.accountStatus}>({item.status || 'Unknown'})</Text>
       </View>
-      <TouchableOpacity
-        style={styles.moreButton}
-        onPress={() => openModal(item)}
-      >
+      <TouchableOpacity style={styles.moreButton} onPress={() => openModal(item)}>
         <Ionicons name="ellipsis-vertical" size={20} color="#000" />
       </TouchableOpacity>
     </View>
@@ -98,20 +117,19 @@ const Conductors = () => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Conductor</Text>
+        <Text style={styles.headerTitle}>My Conductors</Text>
       </View>
 
       {/* Content */}
       <View style={styles.content}>
-        {/* Title Row */}
         <View style={styles.titleRow}>
-          <Text style={styles.title}>List of accounts</Text>
-          <TouchableOpacity style={styles.addButton} onPress={() => navigation.navigate('AddConductor')}>
+          <Text style={styles.title}>List of Conductors</Text>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => navigation.navigate('AddConductor')}
+          >
             <Ionicons name="add-circle" size={20} color="#FFF" />
             <Text style={styles.addButtonText}>Add</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.filterButton}>
-            <Ionicons name="filter" size={20} color="#000" />
           </TouchableOpacity>
         </View>
 
@@ -136,38 +154,19 @@ const Conductors = () => {
             <TouchableOpacity style={styles.modalClose} onPress={closeModal}>
               <Ionicons name="close" size={24} color="#000" />
             </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.modalOption}
-              onPress={openStatusModal}
-            >
-              <Ionicons
-                name="link"
-                size={30}
-                color="#007AFF"
-                style={styles.optionIcon}
-              />
+            <TouchableOpacity style={styles.modalOption} onPress={openStatusModal}>
+              <Ionicons name="link" size={30} color="#007AFF" />
               <Text style={styles.modalOptionText}>Set Status</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.modalOption}  onPress={() => {
-    navigation.navigate('UpdateConductor', { account: selectedAccount });
-    closeModal(); 
-  }}>
-              <Ionicons
-                name="create-outline"
-                size={30}
-                color="#007AFF"
-                style={styles.optionIcon}
-              />
+            <TouchableOpacity
+              style={styles.modalOption}
+              onPress={() => {
+                navigation.navigate('UpdateConductor', { account: selectedAccount });
+                closeModal();
+              }}
+            >
+              <Ionicons name="create-outline" size={30} color="#007AFF" />
               <Text style={styles.modalOptionText}>Edit Details</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.modalOption}>
-              <Ionicons
-                name="ellipsis-horizontal"
-                size={30}
-                color="#000"
-                style={styles.optionIcon}
-              />
-              <Text style={styles.modalOptionText}>View More</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -186,30 +185,21 @@ const Conductors = () => {
               <Ionicons name="close" size={24} color="#000" />
             </TouchableOpacity>
             <Text style={styles.statusModalTitle}>Set Status</Text>
-
             <TouchableOpacity
-              style={[
-                styles.statusOption,
-                selectedAccount?.status === 'Active' && { backgroundColor: '#DDECCA' },
-              ]}
-              onPress={() => updateStatus('Active', '#4CAF50')}
+              style={styles.statusOption}
+              onPress={() => updateStatus('Active')}
             >
-              <Text style={[styles.statusOptionText, { color: '#4CAF50' }]}>ACTIVE</Text>
+              <Text style={styles.statusOptionText}>ACTIVE</Text>
             </TouchableOpacity>
-
             <TouchableOpacity
-              style={[
-                styles.statusOption,
-                selectedAccount?.status === 'Inactive' && { backgroundColor: '#FFECCF' },
-              ]}
-              onPress={() => updateStatus('Inactive', '#FF9800')}
+              style={styles.statusOption}
+              onPress={() => updateStatus('Inactive')}
             >
-              <Text style={[styles.statusOptionText, { color: '#FF9800' }]}>INACTIVE</Text>
+              <Text style={styles.statusOptionText}>INACTIVE</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
-
     </View>
   );
 };

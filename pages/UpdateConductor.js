@@ -7,9 +7,12 @@ import {
   TouchableOpacity,
   Modal,
   ScrollView,
+  Alert,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
+import database from '@react-native-firebase/database';
+import auth from '@react-native-firebase/auth';
 
 const EditConductor = ({ route }) => {
   const navigation = useNavigation();
@@ -21,7 +24,7 @@ const EditConductor = ({ route }) => {
     lastName: account.lastName || '',
     email: account.email || '',
     phoneNumber: account.phoneNumber || '',
-    password: account.password || '',
+    password: '', // Leave empty to detect changes
   });
 
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
@@ -31,21 +34,55 @@ const EditConductor = ({ route }) => {
     setForm({ ...form, [field]: value });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.firstName || !form.lastName || !form.email || !form.phoneNumber) {
       alert('Please fill in all required fields.');
       return;
     }
-
-    console.log('Updated information:', form);
-    setSuccessModalVisible(true);
-    // Add save logic here (e.g., API call)
+  
+    try {
+      const updates = {
+        firstName: form.firstName,
+        middleName: form.middleName,
+        lastName: form.lastName,
+        email: form.email,
+        phoneNumber: form.phoneNumber,
+      };
+  
+      // If a new password is provided, update it in Firebase Auth
+      if (form.password.trim()) {
+        const user = await auth().currentUser;
+        await user.updatePassword(form.password);
+        console.log('Password updated successfully.');
+      }
+  
+      // Update the user's details in the Firebase Realtime Database
+      await database().ref(`users/accounts/${account.id}`).update(updates);
+      console.log('Account details updated successfully.');
+  
+      // Update the local state to reflect the latest changes
+      setForm((prevState) => ({
+        ...prevState,
+        ...updates,
+      }));
+  
+      setSuccessModalVisible(true);
+    } catch (error) {
+      console.error('Error updating account:', error);
+      alert('Failed to update account. Please try again.');
+    }
   };
-
-  const handleDelete = () => {
-    console.log('Account deleted:', account.id);
-    setDeleteModalVisible(false);
-    navigation.goBack();
+  
+  const handleDelete = async () => {
+    try {
+      await database().ref(`users/accounts/${account.id}`).remove();
+      Alert.alert('Success', 'Account deleted successfully.');
+      setDeleteModalVisible(false);
+      navigation.goBack();
+    } catch (error) {
+      console.error('Error deleting account:', error);
+      Alert.alert('Error', 'Failed to delete the account. Please try again.');
+    }
   };
 
   return (
@@ -101,7 +138,7 @@ const EditConductor = ({ route }) => {
         />
         <TextInput
           style={styles.input}
-          placeholder="Password"
+          placeholder="New Password (Optional)"
           placeholderTextColor="#999"
           secureTextEntry={true}
           value={form.password}
@@ -235,7 +272,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   deleteButton: {
-    flex:1,
+    flex: 1,
     backgroundColor: '#FF5252',
     paddingVertical: 14,
     borderRadius: 8,
@@ -248,16 +285,17 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContainer: {
-    width: '80%',
+    width: 300,
     backgroundColor: '#FFF',
     borderRadius: 10,
     padding: 20,
     alignItems: 'center',
+    elevation: 10,
   },
   modalTitle: {
     fontSize: 18,
@@ -274,7 +312,7 @@ const styles = StyleSheet.create({
   modalButton: {
     flex: 1,
     backgroundColor: '#4CAF50',
-    paddingVertical: 12,
+    paddingVertical: 10,
     borderRadius: 8,
     alignItems: 'center',
     marginHorizontal: 5,

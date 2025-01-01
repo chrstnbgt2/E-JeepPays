@@ -1,20 +1,19 @@
 import { useNavigation } from '@react-navigation/native';
-import React from 'react';
+import React, { useContext } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunity from 'react-native-vector-icons/MaterialCommunityIcons';
-import auth from '@react-native-firebase/auth'; // Import Firebase Auth
+import { AuthContext } from '../context/AuthContext'; // Import AuthContext
 
 const ProfileScreen = () => {
   const navigation = useNavigation();
+  const { logOut } = useContext(AuthContext); // Use logOut from AuthContext
 
   // Logout function
   const handleLogout = async () => {
     try {
-      await auth().signOut(); // Sign the user out
+      await logOut(); // Call the centralized logout function
       console.log('User signed out');
-      // Navigate to the login screen after logout
-      navigation.navigate('Login');  
     } catch (error) {
       console.error('Error signing out:', error); // Handle sign-out errors
     }
@@ -28,27 +27,41 @@ const ProfileScreen = () => {
       </View>
 
       {/* Menu Items */}
-      <View style={styles.menuItem}>
+      <TouchableOpacity
+        style={styles.menuItem}
+        onPress={() => navigation.navigate('AccountInformation')}
+      >
         <Ionicons name="person-circle-outline" size={24} color="#000" />
         <Text style={styles.menuText}>Account Information</Text>
         <Ionicons name="chevron-forward-outline" size={20} color="#000" />
-      </View>
-      <View style={styles.menuItem}>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.menuItem}
+        onPress={() => navigation.navigate('Discount')}
+      >
         <MaterialCommunity name="brightness-percent" size={24} color="#000" />
         <Text style={styles.menuText}>Discount</Text>
-        <Ionicons name="chevron-forward-outline" size={20} color="#000" onPress={() => navigation.navigate('Discount')} />
-      </View>
-      <View style={styles.menuItem}>
+        <Ionicons name="chevron-forward-outline" size={20} color="#000" />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.menuItem}
+        onPress={() => navigation.navigate('TermsAndConditions')}
+      >
         <Ionicons name="pricetags-outline" size={24} color="#000" />
         <Text style={styles.menuText}>Terms and Conditions</Text>
         <Ionicons name="chevron-forward-outline" size={20} color="#000" />
-      </View>
+      </TouchableOpacity>
 
-      <View style={styles.menuItem}>
+      <TouchableOpacity
+        style={styles.menuItem}
+        onPress={() => navigation.navigate('Settings')}
+      >
         <Ionicons name="settings-outline" size={24} color="#000" />
         <Text style={styles.menuText}>Settings</Text>
         <Ionicons name="chevron-forward-outline" size={20} color="#000" />
-      </View>
+      </TouchableOpacity>
 
       {/* Logout Button */}
       <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>

@@ -26,9 +26,46 @@ const RegisterScreen2 = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // Sanitize input to remove harmful characters
+  const sanitizeInput = (input) => input.replace(/[<>]/g, '');
+
+  // Validate user inputs
+  const validateInputs = () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const phoneRegex = /^[0-9]{10,15}$/; // Adjust for your region
+    const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{6,}$/;
+
+    if (!phoneRegex.test(phoneNumber)) {
+      Alert.alert(
+        'Invalid Phone Number',
+        'Phone number must contain only digits and be between 10 and 15 characters long.'
+      );
+      return false;
+    }
+
+    if (!emailRegex.test(email)) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address.');
+      return false;
+    }
+
+    if (!passwordRegex.test(password)) {
+      Alert.alert(
+        'Weak Password',
+        'Password must be at least 6 characters long and include at least 1 uppercase letter, 1 number, and 1 special character.'
+      );
+      return false;
+    }
+
+    return true;
+  };
+
   const handleRegister = async () => {
     if (!firstName || !lastName || !phoneNumber || !email || !password) {
       Alert.alert('Error', 'All fields are required except Middle Name.');
+      return;
+    }
+
+    if (!validateInputs()) {
       return;
     }
 
@@ -40,12 +77,12 @@ const RegisterScreen2 = () => {
       // Save additional user data to Realtime Database
       const userId = userCredential.user.uid;
 
-      await database().ref(`/users/passengers/${userId}`).set({
-        firstName,
-        middleName: middleName || '', // Handle optional middle name
-        lastName,
-        phoneNumber,
-        email,
+      await database().ref(`/users/accounts/${userId}`).set({
+        firstName: sanitizeInput(firstName),
+        middleName: sanitizeInput(middleName || ''),
+        lastName: sanitizeInput(lastName),
+        phoneNumber: sanitizeInput(phoneNumber),
+        email: sanitizeInput(email),
         role: 'user', // Defined role
         wallet_balance: 0, // Initial wallet balance
         createdAt: new Date().toISOString(), // Save timestamp
@@ -54,18 +91,22 @@ const RegisterScreen2 = () => {
       Alert.alert('Success', 'Account created successfully!');
       navigation.navigate('Login');
     } catch (error) {
-      if (error.code === 'auth/email-already-in-use') {
-        Alert.alert(
-          'Email Already in Use',
-          'The email address is already registered. Please log in or use a different email.'
-        );
-      } else if (error.code === 'auth/invalid-email') {
-        Alert.alert('Invalid Email', 'The email address is invalid. Please try again.');
-      } else if (error.code === 'auth/weak-password') {
-        Alert.alert('Weak Password', 'Password must be at least 6 characters.');
-      } else {
-        console.error('Error during registration:', error);
-        Alert.alert('Error', error.message);
+      switch (error.code) {
+        case 'auth/email-already-in-use':
+          Alert.alert(
+            'Email Already in Use',
+            'The email address is already registered. Please log in or use a different email.'
+          );
+          break;
+        case 'auth/invalid-email':
+          Alert.alert('Invalid Email', 'The email address is invalid. Please try again.');
+          break;
+        case 'auth/weak-password':
+          Alert.alert('Weak Password', 'Password must be at least 6 characters.');
+          break;
+        default:
+          console.error('Error during registration:', error);
+          Alert.alert('Error', 'An unexpected error occurred. Please try again.');
       }
     } finally {
       setLoading(false);

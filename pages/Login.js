@@ -21,8 +21,8 @@ import { AuthContext } from '../context/AuthContext';
 
 const LoginScreen = () => {
   const navigation = useNavigation();
-  const { setAuthState } = useContext(AuthContext); // Use the AuthContext to set authentication state
-  const { setIsLoggedIn, setRole } = useContext(AuthContext); // Ensure these are exposed in AuthContext
+  const { setAuthState } = useContext(AuthContext);  
+  const { setIsLoggedIn, setRole } = useContext(AuthContext);  
   
   // Define state
   const [isKeyboardVisible, setKeyboardVisible] = useState(false);
@@ -58,7 +58,7 @@ const LoginScreen = () => {
       const userId = userCredential.user.uid;
   
       // Fetch user's role from Realtime Database
-      const roleSnapshot = await database().ref(`/users/passengers/${userId}/role`).once('value');
+      const roleSnapshot = await database().ref(`/users/accounts/${userId}/role`).once('value');
       const userRole = roleSnapshot.val();
   
       if (userRole) {

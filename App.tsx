@@ -95,6 +95,20 @@ const DriverNavigator = () => (
   >
     <DriverTabs.Screen name="DashboardDriver" component={HomeScreenDriver} />
     <DriverTabs.Screen name="Seat" component={BusDetail} />
+    <DriverTabs.Screen
+      name="MiddleTab"
+      component={Dashboard}
+      options={{
+        tabBarButton: () => (
+          <TouchableOpacity style={styles.middleTab}>
+            <Image
+              source={require('./assets/images/qrlogo.png')} 
+              style={styles.middleImage}
+            />
+          </TouchableOpacity>
+        ),
+      }}
+    />
     <DriverTabs.Screen name="History" component={History} />
     <DriverTabs.Screen name="Profile" component={ProfileScreenDriver} />
   </DriverTabs.Navigator>
@@ -179,6 +193,22 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  }, middleTab: {
+    position: 'absolute',
+    top: -2,  
+    left:10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: 60,
+    width: 60,
+    backgroundColor: '#FFF',  
+    borderRadius: 30,  
+    elevation: 5, 
+  },
+  middleImage: {
+    height: 60,
+    width: 60,
+    resizeMode: 'contain',
   },
 });
 

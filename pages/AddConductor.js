@@ -5,9 +5,12 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
+  Alert,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
+import auth from '@react-native-firebase/auth'; // Import Firebase Auth
+import database from '@react-native-firebase/database'; // Import Firebase Database
 
 const CreateConductor = () => {
   const navigation = useNavigation();
@@ -25,25 +28,74 @@ const CreateConductor = () => {
     setForm({ ...form, [field]: value });
   };
 
-  const handleSubmit = () => {
-    console.log('Form submitted:', form);
-    // Add form submission logic here
+  const handleSubmit = async () => {
+    const {
+      firstName,
+      middleName,
+      lastName,
+      email,
+      phoneNumber,
+      password,
+      cpassword,
+    } = form;
+
+    // Validate required fields
+    if (!firstName || !lastName || !email || !phoneNumber || !password) {
+      Alert.alert('Error', 'All fields except middle name are required!');
+      return;
+    }
+
+    // Check if passwords match
+    if (password !== cpassword) {
+      Alert.alert('Error', 'Passwords do not match!');
+      return;
+    }
+
+    try {
+      // Get the current logged-in user's UID
+      const currentUser = auth().currentUser;
+      if (!currentUser) {
+        Alert.alert('Error', 'You must be logged in to create a conductor.');
+        return;
+      }
+      const creatorUid = currentUser.uid;
+
+      // Generate a unique key for the conductor
+      const newConductorRef = database().ref('users/accounts').push();
+      const userId = newConductorRef.key;
+
+      // Save conductor data in the Realtime Database
+      await newConductorRef.set({
+        firstName,
+        middleName,
+        lastName,
+        email,
+        phoneNumber,
+        role: 'conductor',
+        wallet_balance: 0, // Default wallet balance
+        creatorUid, // Add creator's UID
+        status:'Active',
+        timestamp: Date.now(),
+      });
+
+      Alert.alert('Success', 'Conductor account created successfully!');
+      navigation.goBack(); // Navigate back to the previous screen
+    } catch (error) {
+      console.error('Error creating conductor account:', error);
+      Alert.alert('Error', 'Failed to create account. Please try again.');
+    }
   };
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Conductor</Text>
       </View>
-
-      {/* Form Content */}
       <View style={styles.content}>
         <Text style={styles.title}>Create an account</Text>
-
         <TextInput
           style={styles.input}
           placeholder="First Name"
@@ -85,7 +137,7 @@ const CreateConductor = () => {
           style={styles.input}
           placeholder="Password"
           placeholderTextColor="#999"
-          secureTextEntry={true}
+          secureTextEntry
           value={form.password}
           onChangeText={(text) => handleInputChange('password', text)}
         />
@@ -93,8 +145,8 @@ const CreateConductor = () => {
           style={styles.input}
           placeholder="Confirm Password"
           placeholderTextColor="#999"
-          secureTextEntry={true}
-          value={form.password}
+          secureTextEntry
+          value={form.cpassword}
           onChangeText={(text) => handleInputChange('cpassword', text)}
         />
         <TouchableOpacity style={styles.submitButton} onPress={handleSubmit}>
