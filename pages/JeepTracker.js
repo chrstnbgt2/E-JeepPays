@@ -1,66 +1,196 @@
-import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Image } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, View, Image, Alert, Text, Platform } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';
-import { MAPBOX_ACCESS_TOKEN } from '@env';  
-import { useNavigation } from '@react-navigation/native';
- 
- 
+import Geolocation from 'react-native-geolocation-service';
+import database from '@react-native-firebase/database';
+import { geohashQueryBounds, distanceBetween } from 'geofire-common';
+import { request, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
+import { MAPBOX_ACCESS_TOKEN } from '@env';
+
 MapboxGL.setAccessToken(MAPBOX_ACCESS_TOKEN);
 
 const JeepTrackerScreen = () => {
-   const navigation = useNavigation();
-      
-  const initialCoordinates = [121.056269, 14.553449]; // Example: Manila, Philippines
+ 
+  const [currentLocation, setCurrentLocation] = useState(null);
+  const [nearbyJeepneys, setNearbyJeepneys] = useState([]);
+  const [listenerActive, setListenerActive] = useState(false);
+
+  useEffect(() => {
+    const requestLocationPermission = async () => {
+      try {
+        const result = await request(
+          Platform.OS === 'android'
+            ? PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION
+            : PERMISSIONS.IOS.LOCATION_WHEN_IN_USE
+        );
+
+        if (result === RESULTS.GRANTED) {
+          console.log('Location permission granted');
+
+          // Fetch current location
+          Geolocation.getCurrentPosition(
+            (position) => {
+              const { latitude, longitude } = position.coords;
+              setCurrentLocation([longitude, latitude]); // Set current location
+              startJeepneyListeners(latitude, longitude); // Start listening for updates
+            },
+            (error) => {
+              console.error('Error fetching location:', error);
+              Alert.alert('Location Error', 'Unable to fetch current location.');
+            },
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+          );
+        } else {
+          Alert.alert(
+            'Permission Denied',
+            'Location permission is required to track jeepneys.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Open Settings', onPress: () => openSettings() },
+            ]
+          );
+        }
+      } catch (error) {
+        console.error('Error requesting location permission:', error);
+      }
+    };
+
+    requestLocationPermission();
+
+    // Cleanup on component unmount
+    return () => {
+      database().ref('jeep_loc').off();
+    };
+  }, []);
+
+  const startJeepneyListeners = (latitude, longitude) => {
+    if (listenerActive) {
+      return; // Avoid adding duplicate listeners
+    }
+
+    const radiusInKm = 3; // 3 kilometers
+    const bounds = geohashQueryBounds([latitude, longitude], radiusInKm);
+    const jeepneyRef = database().ref('jeep_loc');
+
+    const promises = bounds.map(([start, end]) =>
+      jeepneyRef.orderByChild('geohash').startAt(start).endAt(end).once('value')
+    );
+
+    Promise.all(promises)
+      .then((snapshots) => {
+        const nearby = [];
+        snapshots.forEach((snapshot) => {
+          snapshot.forEach((childSnapshot) => {
+            const data = childSnapshot.val();
+            const { lat, lng } = data;
+            const distance = distanceBetween([latitude, longitude], [lat, lng]);
+            if (distance <= radiusInKm) {
+              nearby.push({
+                id: childSnapshot.key,
+                latitude: lat,
+                longitude: lng,
+              });
+            }
+          });
+        });
+
+        setNearbyJeepneys(nearby);
+
+        // Set up real-time listeners
+        jeepneyRef.on('child_removed', (snapshot) => {
+          const removedJeepneyId = snapshot.key;
+          setNearbyJeepneys((prev) => prev.filter((jeepney) => jeepney.id !== removedJeepneyId));
+        });
+
+        jeepneyRef.on('child_changed', (snapshot) => {
+          const updatedData = snapshot.val();
+          const updatedId = snapshot.key;
+
+          setNearbyJeepneys((prev) =>
+            prev.map((jeepney) =>
+              jeepney.id === updatedId
+                ? {
+                    id: updatedId,
+                    latitude: updatedData.lat,
+                    longitude: updatedData.lng,
+                  }
+                : jeepney
+            )
+          );
+        });
+
+        jeepneyRef.on('child_added', (snapshot) => {
+          const newJeepney = snapshot.val();
+          const newId = snapshot.key;
+        
+          if (newJeepney) {
+            const { lat, lng } = newJeepney;
+        
+            setNearbyJeepneys((prev) => {
+              // Check if the jeepney ID already exists in the array
+              if (prev.some((jeepney) => jeepney.id === newId)) {
+                return prev; // If it exists, return the previous state unchanged
+              }
+        
+          
+              return [
+                ...prev,
+                {
+                  id: newId,
+                  latitude: lat,
+                  longitude: lng,
+                },
+              ];
+            });
+          }
+        });
+        
+        setListenerActive(true);
+      })
+      .catch((error) => {
+        console.error('Error fetching nearby jeepneys:', error);
+      });
+  };
+
 
   return (
     <View style={styles.container}>
-      {/* Header Section */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Jeep Tracker</Text>
-      </View>
-
       {/* Map Section */}
       <View style={styles.mapContainer}>
-        <MapboxGL.MapView
-          style={styles.map}
-          logoEnabled={false} // Disable Mapbox logo
-          attributionEnabled={false} // Disable attribution
-        >
-          {/* Set the initial view */}
-          <MapboxGL.Camera
-            zoomLevel={12} // Adjust zoom level
-            centerCoordinate={initialCoordinates}
-          />
-
-          {/* Add Jeep Markers */}
-          <MapboxGL.PointAnnotation
-            id="jeep1"
-            coordinate={[121.054702, 14.554729]} // Example coordinate
+        {currentLocation ? (
+          <MapboxGL.MapView
+            style={styles.map}
+            logoEnabled={false}
+            attributionEnabled={false}
           >
-            <Image
-              source={require('../assets/images/jeep.png')} // Path to your custom image
-              style={styles.markerImage}
-            />
-          </MapboxGL.PointAnnotation>
+            {/* Camera Initial View */}
+            <MapboxGL.Camera zoomLevel={14} centerCoordinate={currentLocation} />
 
-          <MapboxGL.PointAnnotation
-            id="jeep2"
-            coordinate={[121.058880, 14.552060]} // Example coordinate
-          >
-            <Image
-              source={require('../assets/images/jeep.png')} // Path to your custom image
-              style={styles.markerImage}
-            />
-          </MapboxGL.PointAnnotation>
-        </MapboxGL.MapView>
+            {/* Current User Location Marker */}
+            <MapboxGL.PointAnnotation id="userLocation" coordinate={currentLocation}>
+              <View style={styles.userMarker} />
+            </MapboxGL.PointAnnotation>
+
+            {/* Jeepney Markers */}
+            {nearbyJeepneys.map((jeepney) => (
+              <MapboxGL.PointAnnotation
+                key={jeepney.id}
+                id={jeepney.id}
+                coordinate={[jeepney.longitude, jeepney.latitude]}
+              >
+                <Image
+                  source={require('../assets/images/jeep.png')} // Replace with your Jeepney icon
+                  style={styles.markerImage}
+                />
+              </MapboxGL.PointAnnotation>
+            ))}
+          </MapboxGL.MapView>
+        ) : (
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Loading map...</Text>
+          </View>
+        )}
       </View>
-
-      {/* View Jeep Details Button */}
-      <TouchableOpacity style={styles.detailsButton} onPress={() => navigation.navigate('BusDetail')}>
-        <Text style={styles.detailsButtonText}>View Jeep Details</Text>
-      </TouchableOpacity>
-
-     
     </View>
   );
 };
@@ -70,67 +200,36 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F4F4F4',
   },
-  header: {
-    backgroundColor: '#466B66',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 25,
-    borderBottomRightRadius: 25,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
   mapContainer: {
     flex: 1,
-    marginHorizontal: 20,
-    marginVertical: 20,
-    borderRadius: 15,
+    margin: 10,
+    borderRadius: 10,
     overflow: 'hidden',
   },
   map: {
     flex: 1,
   },
+  userMarker: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: 'blue',
+    borderColor: 'white',
+    borderWidth: 2,
+  },
   markerImage: {
-    width: 41, 
-    height: 41,
-    resizeMode: 'contain', 
+    width: 40,
+    height: 40,
+    resizeMode: 'contain',
   },
-  detailsButton: {
-    backgroundColor: '#000000',
-    borderRadius: 25,
-    paddingVertical: 15,
-    marginHorizontal: 20,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
   },
-  detailsButtonText: {
-    color: '#FFFFFF',
+  loadingText: {
     fontSize: 16,
-    fontWeight: 'bold',
-  },
-  bottomNav: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: '#466B66',
-    height: 70,
-    borderTopLeftRadius: 15,
-    borderTopRightRadius: 15,
-  },
-  navItem: {
-    alignItems: 'center',
-  },
-  navIcon: {
-    width: 24,
-    height: 24,
-  },
-  navText: {
-    fontSize: 12,
-    color: '#FFFFFF',
-    marginTop: 5,
+    color: '#888',
   },
 });
 

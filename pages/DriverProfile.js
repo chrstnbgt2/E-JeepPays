@@ -1,22 +1,37 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useContext } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Alert } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunity from 'react-native-vector-icons/MaterialCommunityIcons';
 import { AuthContext } from '../context/AuthContext'; 
+import { DriverLocationContext } from '../context/DriverLocationContext';
 
+import database from '@react-native-firebase/database';
+import auth from '@react-native-firebase/auth';
 
 const ProfileScreenDriver = () => {
   const navigation = useNavigation();
    const { logOut } = useContext(AuthContext);  
-  
+   const { stopLocationTracking } = useContext(DriverLocationContext);
     // Logout function
     const handleLogout = async () => {
       try {
-        await logOut();  
-        console.log('User signed out');
+        const driverUid = auth().currentUser?.uid;
+  
+        if (driverUid) {
+          // Remove driver's location from Firebase
+          await database().ref(`jeep_loc/${driverUid}`).remove();
+        }
+  
+        // Stop location tracking
+        stopLocationTracking();
+  
+        await logOut();
+        Alert.alert('Success', 'You have been logged out.');
+        navigation.navigate('Login');
       } catch (error) {
-        console.error('Error signing out:', error);  
+        console.error('Error signing out:', error);
+        Alert.alert('Error', 'An error occurred while signing out.');
       }
     };
   

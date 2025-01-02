@@ -1,5 +1,4 @@
- 
-import React from 'react';
+ import React, { useEffect,useRef,useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -10,14 +9,94 @@ import {
   ImageBackground,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation } from '@react-navigation/native';
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons'; 
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
-
+import Geolocation from 'react-native-geolocation-service';
+import database from '@react-native-firebase/database';
+import { geohashForLocation } from 'geofire-common'; 
+import auth from '@react-native-firebase/auth';
+import { check, request, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
+import { DriverLocationContext } from '../context/DriverLocationContext';
 
 const HomeScreenDriver = () => {
-     const navigation = useNavigation();
-            
+  const [currentLocation, setCurrentLocation] = useState(null);
+  const watchIdRef = useRef(null); // To track the location watcher
+  const driverUid = auth().currentUser?.uid;
+
+  useEffect(() => {
+    const requestLocationPermission = async () => {
+      try {
+        const result = await request(
+          Platform.OS === 'android'
+            ? PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION
+            : PERMISSIONS.IOS.LOCATION_WHEN_IN_USE
+        );
+
+        if (result === RESULTS.GRANTED) {
+          console.log('Location permission granted');
+
+          // Start sharing location
+          watchIdRef.current = Geolocation.watchPosition(
+            (position) => {
+              const { latitude, longitude } = position.coords;
+              setCurrentLocation([longitude, latitude]);
+
+              // Save driver's location to Firebase
+              if (driverUid) {
+                updateDriverLocation(latitude, longitude, driverUid);
+              }
+            },
+            (error) => {
+              console.error('Error fetching location:', error);
+              Alert.alert('Location Error', 'Unable to fetch current location.');
+            },
+            { enableHighAccuracy: true, distanceFilter: 10, timeout: 15000, maximumAge: 10000 }
+          );
+        } else {
+          Alert.alert(
+            'Permission Denied',
+            'Location permission is required to track your location.',
+            [
+              { text: 'Cancel', style: 'cancel' },
+              { text: 'Open Settings', onPress: () => openSettings() },
+            ]
+          );
+        }
+      } catch (error) {
+        console.error('Error requesting location permission:', error);
+      }
+    };
+
+    requestLocationPermission();
+
+    // Cleanup function to remove location data and stop location tracking
+    return () => {
+      if (driverUid) {
+        database().ref(`jeep_loc/${driverUid}`).remove();
+      }
+      if (watchIdRef.current !== null) {
+        Geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null; // Reset watchIdRef to null
+      }
+    };
+  }, [driverUid]);
+
+  const updateDriverLocation = (latitude, longitude, driverUid) => {
+    const geohash = geohashForLocation([latitude, longitude]);
+
+    database()
+      .ref(`jeep_loc/${driverUid}`)
+      .set({
+        lat: latitude,
+        lng: longitude,
+        geohash,
+        timestamp: Date.now(),
+      })
+      .catch((error) => {
+        console.error('Error updating driver location:', error);
+      });
+  };
+
   return (
     <View style={styles.container}>
       {/* Header Section */}
