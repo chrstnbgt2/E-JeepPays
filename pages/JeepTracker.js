@@ -94,8 +94,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   markerImage: {
-    width: 40, 
-    height: 40,
+    width: 41, 
+    height: 41,
     resizeMode: 'contain', 
   },
   detailsButton: {

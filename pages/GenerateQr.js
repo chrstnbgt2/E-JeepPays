@@ -1,17 +1,78 @@
-import React from 'react';
-import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, Alert,PermissionsAndroid,Platform } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-
+import database from '@react-native-firebase/database';
+import ViewShot from 'react-native-view-shot';
+import RNFS from 'react-native-fs';
+ 
 const GeneratedQRPage = ({ route, navigation }) => {
   const { passengerType, userId } = route.params;
+  const [username, setUsername] = useState('');
+  const [qrValue, setQrValue] = useState('');
+  const viewShotRef = useRef();
 
-  // Add username to the QR code value
-  const qrValue = JSON.stringify({
-    type: passengerType,
-    userId,
-    username: `User_${userId}`, // Generate a username based on userId
-  });
+  useEffect(() => {
+    const fetchTemporaryData = async () => {
+      try {
+        if (!userId) {
+          console.error('Error: userId is undefined.');
+          Alert.alert('Error', 'User ID is missing. Please try again.');
+          return;
+        }
+
+        // Reference the specific user path in the database
+        const tempRef = database().ref(`temporary/${userId}`);
+        const snapshot = await tempRef.once('value');
+
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+
+          // Loop through the generated UIDs under this userId
+          for (const generatedUid in data) {
+            if (data[generatedUid]) {
+              const userEntry = data[generatedUid];
+              setUsername(userEntry.username);
+              setQrValue(
+                JSON.stringify({
+                  type: passengerType,
+                  userId,
+                  username: userEntry.username,
+                })
+              );
+
+              console.log('Fetched data:', userEntry); // Log the fetched data
+              return; // Exit the function once the first match is found
+            }
+          }
+
+          // If no data under the user's generated UIDs
+          Alert.alert('Error', 'No temporary data found for this user.');
+        } else {
+          // If no data under the userId
+          Alert.alert('Error', 'No temporary data available for this user.');
+        }
+      } catch (error) {
+        console.error('Error fetching temporary data:', error);
+        Alert.alert('Error', 'Failed to retrieve temporary data. Please try again.');
+      }
+    };
+
+    fetchTemporaryData();
+  }, [passengerType, userId]);
+
+  const saveQrCode = async () => {
+    try {
+      const uri = await viewShotRef.current.capture(); // Capture the view
+      const filePath = `${RNFS.DownloadDirectoryPath}/generated-qr-code.png`;
+
+      await RNFS.moveFile(uri, filePath);
+      Alert.alert('Success', `QR code saved to ${filePath}`);
+    } catch (error) {
+      console.error('Error saving QR code:', error);
+      Alert.alert('Error', 'Failed to save QR code. Please try again.');
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -24,24 +85,30 @@ const GeneratedQRPage = ({ route, navigation }) => {
       </View>
 
       {/* QR Card */}
-      <View style={styles.card}>
-        <Text style={styles.passengerType}>{`${passengerType} Passenger`}</Text>
-        <Text style={styles.userId}>User No.: {userId}</Text>
-        <View style={styles.qrContainer}>
-          <QRCode
-            value={qrValue}
-            size={300}
-            logo={require('../assets/images/qrlogo.png')}
-            logoSize={80}
-            logoBackgroundColor="transparent"
-            quietZone={10}
-          />
+      <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1 }}>
+        <View style={styles.card}>
+          <Text style={styles.passengerType}>{`${passengerType} Passenger`}</Text>
+          <Text style={styles.userId}>Username: {username || 'Loading...'}</Text>
+          <View style={styles.qrContainer}>
+            {qrValue ? (
+              <QRCode
+                value={qrValue}
+                size={300}
+                logo={require('../assets/images/qrlogo.png')}
+                logoSize={80}
+                logoBackgroundColor="transparent"
+                quietZone={10}
+              />
+            ) : (
+              <Text style={styles.loadingText}>Generating QR...</Text>
+            )}
+          </View>
+          <Text style={styles.note}>Transfer fees may apply</Text>
         </View>
-        <Text style={styles.note}>Transfer fees may apply</Text>
-      </View>
+      </ViewShot>
 
       {/* Save Button */}
-      <TouchableOpacity style={styles.saveButton}>
+      <TouchableOpacity style={styles.saveButton} onPress={saveQrCode}>
         <Text style={styles.saveButtonText}>Save</Text>
       </TouchableOpacity>
     </View>

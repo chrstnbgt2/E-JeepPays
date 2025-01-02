@@ -30,6 +30,7 @@ import QRCodeScannerScreen from './pages/ScanQR';
 import ProfileScreenConductor from './pages/ProfileScreenConductor';
 import MyQRScreenShareConductor from './pages/ConductorShareQr';
 import GeneratedQRPage from './pages/GenerateQr';
+import AccountScreen from './pages/AccountScreen';
 
 // Navigators
 const AuthStack = createStackNavigator();
@@ -175,6 +176,7 @@ const App = () => {
         <RootStack.Screen name="AddConductor" component={CreateConductor} />
         <RootStack.Screen name="UpdateConductor" component={UpdateConductor} />
         <RootStack.Screen name="GenerateQR" component={GeneratedQRPage} />
+        <RootStack.Screen name="AccountInformation" component={AccountScreen} />
       </RootStack.Navigator>
     </NavigationContainer>
   );

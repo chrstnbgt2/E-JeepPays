@@ -23,21 +23,23 @@ const MyQRScreen = () => {
           console.warn('No user is currently logged in.');
           return;
         }
-
+  
         const uid = currentUser.uid;
         setQrValue(uid);
-
+  
         const userRef = database().ref(`users/accounts/${uid}`);
         const snapshot = await userRef.once('value');
-
+  
         if (snapshot.exists()) {
           const userData = snapshot.val();
           const firstName = userData.firstName || '';
           const lastNameInitial = userData.lastName ? userData.lastName.charAt(0) : '';
           setName(`${firstName} ${lastNameInitial}.`);
+          
           const phoneNumber = userData.phoneNumber || '';
           const masked = phoneNumber.replace(/(\d{2})\d{5}(\d{2})/, '$1XXXXX$2');
           setMaskedPhone(masked);
+  
           setUsername(`@${firstName}`);
         } else {
           console.warn('No user data found.');
@@ -46,15 +48,15 @@ const MyQRScreen = () => {
         console.error('Error fetching user data:', error);
       }
     };
-
+  
     fetchUserData();
   }, []);
-
+  
   const saveQrCode = async () => {
     try {
       const uri = await viewShotRef.current.capture();
       const filePath = `${RNFS.DownloadDirectoryPath}/my-qr-code.png`;
-
+  
       await RNFS.moveFile(uri, filePath);
       Alert.alert('Success', `QR code saved to ${filePath}`);
     } catch (error) {
@@ -62,14 +64,67 @@ const MyQRScreen = () => {
       Alert.alert('Error', 'Failed to save QR code. Please try again.');
     }
   };
-
+  
+  const handleGenerate = async () => {
+    try {
+      const currentUser = auth().currentUser;
+      if (!currentUser) {
+        Alert.alert('Error', 'You must be logged in to generate a QR code.');
+        return;
+      }
+  
+      const userLoggedUid = currentUser.uid;
+  
+      // Create a new temporary UID in Firebase
+      const tempRef = database().ref(`temporary/${userLoggedUid}`).push();
+      const generatedUid = tempRef.key;
+  
+      // Generate a random unique username
+      const generateRandomUsername = () => {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let username = 'User_';
+        for (let i = 0; i < 8; i++) {
+          username += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return username;
+      };
+  
+      const randomUsername = generateRandomUsername();
+  
+      // Save the temporary QR code data in Firebase
+      const tempData = {
+        createdAt: new Date().toISOString(),
+        type: 'Regular',
+        username: randomUsername, // Add the random username here
+      };
+  
+      await tempRef.set(tempData);
+  
+      console.log(`Temporary QR Code generated: ${generatedUid}`);
+  
+      // Navigate to the GeneratedQRPage and pass QR details
+      navigation.navigate('GenerateQR', {
+        passengerType: 'Regular',
+        userId: userLoggedUid, // Pass the user's ID
+        qrValue: JSON.stringify({
+          userLoggedUid,
+          generatedUid,
+          username: randomUsername,
+        }),
+      });
+    } catch (error) {
+      console.error('Error generating temporary QR:', error);
+      Alert.alert('Error', 'Failed to generate QR code. Please try again.');
+    }
+  };
+  
+  
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>My QR</Text>
       </View>
 
-      {/* Wrap the entire container in ViewShot */}
       <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1 }}>
         <View style={styles.card}>
           <Text style={styles.name}>{name}</Text>
@@ -95,8 +150,8 @@ const MyQRScreen = () => {
       </ViewShot>
 
       <View style={styles.actionButtons}>
-        <TouchableOpacity style={styles.button1} onPress={() => navigation.navigate('Share')}>
-          <Text style={styles.buttonText}>QR Code Share</Text>
+        <TouchableOpacity style={styles.button1} onPress={handleGenerate}>
+          <Text style={styles.buttonText}>Generate QRCode</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.button2} onPress={saveQrCode}>
           <Text style={styles.buttonText}>Save</Text>
