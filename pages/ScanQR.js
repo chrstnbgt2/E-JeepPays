@@ -1,18 +1,21 @@
-import React, { useState, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Camera, useCameraDevice, useCameraPermission, useCodeScanner } from 'react-native-vision-camera';
+import React, { useState, useRef, useEffect } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { Camera, useCameraDevice, useCameraPermission, useCodeScanner,scanQRCodesFromImage } from 'react-native-vision-camera';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
+import { launchImageLibrary } from 'react-native-image-picker';
+import RNQRGenerator from 'rn-qr-generator'; // Import the QR generator
 
 const QRCodeScannerScreen = () => {
   const navigation = useNavigation();
-  
   const device = useCameraDevice('back');
   const { hasPermission, requestPermission } = useCameraPermission();
-  const [lastScannedTime, setLastScannedTime] = useState(0); // Store the last scanned time
-  const scanInterval = 2000; // 2 seconds interval
+  const [lastScannedTime, setLastScannedTime] = useState(0);
+  const scanInterval = 2000;
+  const [qrDecodedText, setQrDecodedText] = useState(null);
 
+ 
   const codeScanner = useCodeScanner({
     codeTypes: ['qr', 'ean-13'],
     onCodeScanned: (codes) => {
@@ -28,6 +31,40 @@ const QRCodeScannerScreen = () => {
     },
   });
 
+
+  // Upload QR code and decode using rn-qr-generator
+  const uploadQrCode = async () => {
+    try {
+      const result = await launchImageLibrary({
+        mediaType: 'photo',
+      });
+
+      if (result.assets && result.assets.length > 0) {
+        const fileUri = result.assets[0].uri;
+
+        RNQRGenerator.detect({ uri: fileUri })
+          .then((response) => {
+            const { values } = response; // `values` is an array of QR codes detected
+            if (values && values.length > 0) {
+              console.log('Decoded QR Code Content:', values[0]);
+              Alert.alert('QR Code Detected', values[0]); // Show the QR code content
+            } else {
+              console.log('No QR code detected in the image.');
+              Alert.alert('Error', 'No QR code detected in the image.');
+            }
+          })
+          .catch((error) => {
+            console.error('Error decoding QR code:', error);
+            Alert.alert('Error', 'Failed to decode QR code.');
+          });
+      } else {
+        Alert.alert('Error', 'No image selected.');
+      }
+    } catch (error) {
+      console.error('Error uploading QR code:', error);
+      Alert.alert('Error', 'Failed to upload or read QR code image.');
+    }
+  };
   // Check and request camera permissions
   React.useEffect(() => {
     const checkPermission = async () => {
@@ -76,6 +113,7 @@ const QRCodeScannerScreen = () => {
             isActive={true}
             codeScanner={codeScanner}
           />
+          
           {/* Overlay Icon */}
           <View style={styles.iconOverlay}>
             <MaterialCommunityIcons name="line-scan" size={300} color="black" />
@@ -88,9 +126,11 @@ const QRCodeScannerScreen = () => {
         <TouchableOpacity style={styles.button1} onPress={() => navigation.navigate('Share')}>
           <Text style={styles.buttonText}>QR Code Share</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.button2}>
+        <TouchableOpacity style={styles.button2}  onPress={uploadQrCode}>
           <Text style={styles.buttonText}>Upload QR Code</Text>
         </TouchableOpacity>
+
+     
       </View>
     </View>
   );

@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { StyleSheet, View, Image, Alert, Text, Platform } from 'react-native';
+import React, { useEffect, useState, useRef } from 'react';
+import { StyleSheet, View, Image, Alert, Text, Platform, TouchableOpacity } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';
 import Geolocation from 'react-native-geolocation-service';
 import database from '@react-native-firebase/database';
@@ -9,12 +9,23 @@ import { MAPBOX_ACCESS_TOKEN } from '@env';
 
 MapboxGL.setAccessToken(MAPBOX_ACCESS_TOKEN);
 
-const JeepTrackerScreen = () => {
- 
+const JeepTrackerScreen = ({ navigation }) => {
   const [currentLocation, setCurrentLocation] = useState(null);
   const [nearbyJeepneys, setNearbyJeepneys] = useState([]);
-  const [listenerActive, setListenerActive] = useState(false);
+  const [isFollowingUser, setIsFollowingUser] = useState(true); 
+  const cameraRef = useRef(null);  
+  const [selectedJeepney, setSelectedJeepney] = useState(null);  
 
+
+  const handleJeepneyClick = (jeepney) => {
+    setSelectedJeepney(jeepney); // Set the selected jeepney
+  };
+  const handleViewDetails = () => {
+    if (selectedJeepney) {
+      navigation.navigate('JeepDetail', { jeepney: selectedJeepney }); // Pass selected jeepney
+    }
+  };
+  
   useEffect(() => {
     const requestLocationPermission = async () => {
       try {
@@ -27,19 +38,28 @@ const JeepTrackerScreen = () => {
         if (result === RESULTS.GRANTED) {
           console.log('Location permission granted');
 
-          // Fetch current location
-          Geolocation.getCurrentPosition(
+          // Fetch and subscribe to user's current location
+          Geolocation.watchPosition(
             (position) => {
               const { latitude, longitude } = position.coords;
-              setCurrentLocation([longitude, latitude]); // Set current location
-              startJeepneyListeners(latitude, longitude); // Start listening for updates
+              setCurrentLocation([longitude, latitude]);
+
+              if (isFollowingUser && cameraRef.current) {
+                cameraRef.current.setCamera({
+                  centerCoordinate: [longitude, latitude],
+                  zoomLevel: 14,
+                  animationDuration: 1000,
+                });
+              }
             },
             (error) => {
               console.error('Error fetching location:', error);
               Alert.alert('Location Error', 'Unable to fetch current location.');
             },
-            { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+            { enableHighAccuracy: true, distanceFilter: 10, timeout: 15000, maximumAge: 10000 }
           );
+
+          subscribeToJeepneys(); // Subscribe to jeepney updates
         } else {
           Alert.alert(
             'Permission Denied',
@@ -59,102 +79,58 @@ const JeepTrackerScreen = () => {
 
     // Cleanup on component unmount
     return () => {
-      database().ref('jeep_loc').off();
+      database().ref('jeep_loc').off(); // Remove listeners for real-time updates
+      Geolocation.stopObserving(); // Stop location updates
     };
   }, []);
 
-  const startJeepneyListeners = (latitude, longitude) => {
-    if (listenerActive) {
-      return; // Avoid adding duplicate listeners
-    }
-
-    const radiusInKm = 3; // 3 kilometers
-    const bounds = geohashQueryBounds([latitude, longitude], radiusInKm);
+  const subscribeToJeepneys = () => {
     const jeepneyRef = database().ref('jeep_loc');
-
-    const promises = bounds.map(([start, end]) =>
-      jeepneyRef.orderByChild('geohash').startAt(start).endAt(end).once('value')
-    );
-
-    Promise.all(promises)
-      .then((snapshots) => {
-        const nearby = [];
-        snapshots.forEach((snapshot) => {
-          snapshot.forEach((childSnapshot) => {
-            const data = childSnapshot.val();
-            const { lat, lng } = data;
-            const distance = distanceBetween([latitude, longitude], [lat, lng]);
-            if (distance <= radiusInKm) {
-              nearby.push({
-                id: childSnapshot.key,
-                latitude: lat,
-                longitude: lng,
-              });
-            }
-          });
-        });
-
-        setNearbyJeepneys(nearby);
-
-        // Set up real-time listeners
-        jeepneyRef.on('child_removed', (snapshot) => {
-          const removedJeepneyId = snapshot.key;
-          setNearbyJeepneys((prev) => prev.filter((jeepney) => jeepney.id !== removedJeepneyId));
-        });
-
-        jeepneyRef.on('child_changed', (snapshot) => {
-          const updatedData = snapshot.val();
-          const updatedId = snapshot.key;
-
-          setNearbyJeepneys((prev) =>
-            prev.map((jeepney) =>
-              jeepney.id === updatedId
-                ? {
-                    id: updatedId,
-                    latitude: updatedData.lat,
-                    longitude: updatedData.lng,
-                  }
-                : jeepney
-            )
-          );
-        });
-
-        jeepneyRef.on('child_added', (snapshot) => {
-          const newJeepney = snapshot.val();
-          const newId = snapshot.key;
-        
-          if (newJeepney) {
-            const { lat, lng } = newJeepney;
-        
-            setNearbyJeepneys((prev) => {
-              // Check if the jeepney ID already exists in the array
-              if (prev.some((jeepney) => jeepney.id === newId)) {
-                return prev; // If it exists, return the previous state unchanged
-              }
-        
-          
-              return [
-                ...prev,
-                {
-                  id: newId,
-                  latitude: lat,
-                  longitude: lng,
-                },
-              ];
-            });
+  
+    jeepneyRef.on('child_added', (snapshot) => {
+      const data = snapshot.val();
+      const id = snapshot.key;
+      if (data) {
+        setNearbyJeepneys((prev) => {
+          if (prev.some((jeepney) => jeepney.id === id)) {
+            return prev; // Skip if the id already exists
           }
+          return [...prev, { id, latitude: data.lat, longitude: data.lng }];
         });
-        
-        setListenerActive(true);
-      })
-      .catch((error) => {
-        console.error('Error fetching nearby jeepneys:', error);
-      });
+      }
+    });
+  
+    jeepneyRef.on('child_changed', (snapshot) => {
+      const data = snapshot.val();
+      const id = snapshot.key;
+      setNearbyJeepneys((prev) =>
+        prev.map((jeepney) =>
+          jeepney.id === id ? { id, latitude: data.lat, longitude: data.lng } : jeepney
+        )
+      );
+    });
+  
+    jeepneyRef.on('child_removed', (snapshot) => {
+      const id = snapshot.key;
+      setNearbyJeepneys((prev) => prev.filter((jeepney) => jeepney.id !== id));
+    });
   };
-
+  useEffect(() => {
+    console.log('Nearby jeepneys:', nearbyJeepneys.map((j) => j.id));
+  }, [nearbyJeepneys]);
+  
 
   return (
     <View style={styles.container}>
+      {/* Header Section */}
+      <View style={styles.header}>
+        <Text style={styles.headerTitle}>Jeep Tracker</Text>
+      </View>
+
+      <Text style={styles.note}>
+        <Text style={styles.noteLabel}>Note:</Text> Choose a Jeep to see the availability of a seat.
+      </Text>
+
       {/* Map Section */}
       <View style={styles.mapContainer}>
         {currentLocation ? (
@@ -162,9 +138,25 @@ const JeepTrackerScreen = () => {
             style={styles.map}
             logoEnabled={false}
             attributionEnabled={false}
+            onUserTrackingModeChange={(event) => {
+              if (event.nativeEvent.payload === 1) {
+                setIsFollowingUser(true);
+              } else {
+                setIsFollowingUser(false);
+              }
+            }}
+            onTouchEnd={() => setIsFollowingUser(false)} // Stop following when the user touches the map
           >
-            {/* Camera Initial View */}
-            <MapboxGL.Camera zoomLevel={14} centerCoordinate={currentLocation} />
+            {/* Camera with Initial Zoom */}
+            <MapboxGL.Camera
+              ref={cameraRef}
+              followUserLocation={isFollowingUser}
+              followUserMode="normal"
+              centerCoordinate={currentLocation}
+              zoomLevel={16}
+              animationMode={'flyTo'}
+              animationDuration={1000}
+            />
 
             {/* Current User Location Marker */}
             <MapboxGL.PointAnnotation id="userLocation" coordinate={currentLocation}>
@@ -173,16 +165,21 @@ const JeepTrackerScreen = () => {
 
             {/* Jeepney Markers */}
             {nearbyJeepneys.map((jeepney) => (
-              <MapboxGL.PointAnnotation
-                key={jeepney.id}
-                id={jeepney.id}
-                coordinate={[jeepney.longitude, jeepney.latitude]}
-              >
-                <Image
-                  source={require('../assets/images/jeep.png')} // Replace with your Jeepney icon
-                  style={styles.markerImage}
-                />
-              </MapboxGL.PointAnnotation>
+           <MapboxGL.PointAnnotation
+           key={`jeepney-${jeepney.id}`}
+           id={`jeepney-${jeepney.id}`}
+           coordinate={[jeepney.longitude, jeepney.latitude]}
+           onSelected={() => handleJeepneyClick(jeepney)} // Selects the jeepney on marker click
+         >
+           <Image
+             source={require('../assets/images/jeep.png')}
+             style={[
+               styles.markerImage,
+               selectedJeepney?.id === jeepney.id && styles.selectedMarker // Apply different style if selected
+             ]}
+           />
+         </MapboxGL.PointAnnotation>
+         
             ))}
           </MapboxGL.MapView>
         ) : (
@@ -191,6 +188,16 @@ const JeepTrackerScreen = () => {
           </View>
         )}
       </View>
+
+      {/* Button Section */}
+      <TouchableOpacity
+  style={[styles.detailsButton, { opacity: selectedJeepney ? 1 : 0.5 }]} 
+  onPress={handleViewDetails}
+  disabled={!selectedJeepney} 
+>
+
+        <Text style={styles.detailsButtonText}>View Jeep Details</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -199,10 +206,30 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F4F4F4',
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  header: {
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  note: {
+    fontSize: 14,
+    marginBottom: 12,
+    textAlign: 'center',
+    color: '#555',
+  },
+  noteLabel: {
+    fontWeight: 'bold',
+    color: 'green',
   },
   mapContainer: {
     flex: 1,
-    margin: 10,
+    marginVertical: 20,
     borderRadius: 10,
     overflow: 'hidden',
   },
@@ -231,6 +258,24 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#888',
   },
+  detailsButton: {
+    marginTop: 10,
+    marginBottom: 10,
+    backgroundColor: '#00695C',
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  detailsButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },selectedMarker: {
+    borderWidth: 3,
+    borderColor: '#FFD700', // Gold border for selected jeepney
+    borderRadius: 25,
+  },
+  
 });
 
 export default JeepTrackerScreen;

@@ -57,16 +57,30 @@ const LoginScreen = () => {
       const userCredential = await auth().signInWithEmailAndPassword(email, password);
       const userId = userCredential.user.uid;
   
-      // Fetch user's role from Realtime Database
-      const roleSnapshot = await database().ref(`/users/accounts/${userId}/role`).once('value');
-      const userRole = roleSnapshot.val();
+      // Fetch user's details from Realtime Database
+      const userSnapshot = await database().ref(`/users/accounts/${userId}`).once('value');
+      const userData = userSnapshot.val();
   
-      if (userRole) {
-        // Update the global auth state
+      if (userData) {
+        const userRole = userData.role;
+        const userStatus = userData.status || 'active'; // Default to 'active' if status is not set
+  
+        // Only restrict the conductor role based on status
+        if (userRole === 'conductor') {
+          if (userStatus.toLowerCase() === 'inactive') {
+            Alert.alert('Account Deactivated', 'Your account is deactivated. Please contact support.');
+            await auth().signOut(); // Ensure user is logged out if login attempt succeeds
+            setIsLoading(false);
+            return; // Stop further execution
+          }
+        }
+  
+        // Allow login for active conductor or other roles
         setAuthState({
           isLoggedIn: true,
           role: userRole,
         });
+  
       } else {
         Alert.alert('Error', 'User role not found. Please contact support.');
       }
@@ -77,6 +91,7 @@ const LoginScreen = () => {
       setIsLoading(false);
     }
   };
+  
   
 
   const togglePasswordVisibility = () => {

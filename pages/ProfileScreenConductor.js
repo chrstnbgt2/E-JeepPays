@@ -29,23 +29,23 @@ const ProfileScreenConductor = () => {
       </View>
 
       {/* Menu Items */}
-      <View style={styles.menuItem}>
-        <Ionicons name="person-circle-outline" size={24} color="#000" />
+      <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('AccountInformation')} >
+        <Ionicons name="person-circle-outline" size={24} color="#000"   />
         <Text style={styles.menuText}>Account Information</Text>
         <Ionicons name="chevron-forward-outline" size={20} color="#000" />
-      </View>
+      </TouchableOpacity>
      
-      <View style={styles.menuItem}>
+      <TouchableOpacity style={styles.menuItem}>
         <Ionicons name="pricetags-outline" size={24} color="#000" />
         <Text style={styles.menuText}>Terms and Conditions</Text>
         <Ionicons name="chevron-forward-outline" size={20} color="#000" />
-      </View>
+      </TouchableOpacity>
 
-      <View style={styles.menuItem}>
+      <TouchableOpacity style={styles.menuItem}>
         <Ionicons name="settings-outline" size={24} color="#000" />
         <Text style={styles.menuText}>Settings</Text>
         <Ionicons name="chevron-forward-outline" size={20} color="#000" />
-      </View>
+      </TouchableOpacity>
 
         {/* Logout Button */}
            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
