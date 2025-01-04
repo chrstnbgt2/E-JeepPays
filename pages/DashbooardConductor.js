@@ -1,5 +1,4 @@
- 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -13,28 +12,67 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
-
+import auth from '@react-native-firebase/auth';
+import database from '@react-native-firebase/database';
 
 const HomeScreenConductor = () => {
-     const navigation = useNavigation();
-            
+  const navigation = useNavigation();
+  const [username, setUsername] = useState(''); // To store firstName of user
+  const [walletBalance, setWalletBalance] = useState('0.00'); // To store wallet balance of user
+
+  useEffect(() => {
+    let userRef;
+    const fetchUserDetails = async () => {
+      try {
+        const currentUser = auth().currentUser;
+        if (!currentUser) {
+          console.warn('No user is currently logged in.');
+          return;
+        }
+
+        const uid = currentUser.uid;
+        userRef = database().ref(`users/accounts/${uid}`);
+
+        // Real-time listener for user details
+        userRef.on('value', (snapshot) => {
+          if (snapshot.exists()) {
+            const userData = snapshot.val();
+            setUsername(userData.firstName || 'User'); // Default to "User" if firstName is missing
+            setWalletBalance(userData.wallet_balance?.toFixed(2) || '0.00'); // Format balance to 2 decimal places
+          } else {
+            console.warn('No user data found.');
+          }
+        });
+      } catch (error) {
+        console.error('Error fetching user details:', error);
+      }
+    };
+
+    fetchUserDetails();
+
+    // Cleanup the listener when component unmounts
+    return () => {
+      if (userRef) userRef.off('value');
+    };
+  }, []);
+
   return (
     <View style={styles.container}>
       {/* Header Section */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <Text style={styles.welcomeText}>
-            Welcome! <Text style={styles.username}>@username</Text>
+            Welcome! <Text style={styles.username}>@{username}</Text>
           </Text>
           <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
         </View>
         <View style={styles.walletSection}>
           <View style={styles.walletInfo}>
-            <Text style={styles.walletBalance}>₱ 0.00</Text>
+            <Text style={styles.walletBalance}>₱{walletBalance}</Text>
             <Text style={styles.walletLabel}>Wallet Balance</Text>
           </View>
           <Image
-            source={require('../assets/images/wallet-icon.png')} 
+            source={require('../assets/images/wallet-icon.png')}
             style={styles.walletIcon}
           />
           <TouchableOpacity style={styles.cashInButton} onPress={() => navigation.navigate('CashIn')}>
@@ -48,7 +86,7 @@ const HomeScreenConductor = () => {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Dashboard</Text>
           <Image
-            source={require('../assets/images/line.png')} 
+            source={require('../assets/images/line.png')}
             style={styles.lineImage}
           />
         </View>
@@ -64,14 +102,13 @@ const HomeScreenConductor = () => {
             <Text style={styles.cardLabel}>Total Passenger</Text>
           </ImageBackground>
 
-          {/* Distance Travelled Card */}
+          {/* Total Income Card */}
           <ImageBackground
             source={require('../assets/images/card-gradient.png')}
             style={styles.card}
             imageStyle={styles.cardImageBackground}
           >
             <FontAwesome5 name="coins" size={40} color="#FFFFFF" />
-           
             <Text style={styles.cardValue}>₱ 543</Text>
             <Text style={styles.cardLabel}>Total Income</Text>
           </ImageBackground>
@@ -81,7 +118,7 @@ const HomeScreenConductor = () => {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Transactions</Text>
           <Image
-            source={require('../assets/images/line.png')} // Replace with your line.png path
+            source={require('../assets/images/line.png')}
             style={styles.lineImage}
           />
         </View>
@@ -90,9 +127,6 @@ const HomeScreenConductor = () => {
           <View style={styles.transactionItem}></View>
         </View>
       </ScrollView>
-
-     
-
     </View>
   );
 };

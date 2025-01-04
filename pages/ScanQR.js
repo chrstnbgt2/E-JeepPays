@@ -9,6 +9,7 @@ import RNQRGenerator from 'rn-qr-generator';
 import database from '@react-native-firebase/database';
 import Geolocation from '@react-native-community/geolocation';  
 import { getDistance } from 'geolib';
+import { MAPBOX_ACCESS_TOKEN } from '@env';
 
 const MAX_FILE_SIZE_MB = 5; // Max file size (in MB)
 const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png']; // Allowed file types
@@ -26,12 +27,13 @@ const QRCodeScannerScreen = () => {
   };
 
  
+ 
   const saveTripToFirebase = async (scannedUid) => {
     try {
       let isTemporaryQR = false;
-      let creatorUid = scannedUid; // Default to original UID
+      let creatorUid = scannedUid;
+      const transactionsRef = database().ref(`/users/accounts/${creatorUid}/transactions`);
   
-      // Check if scanned UID belongs to a temporary QR
       const tempRef = database().ref(`/temporary`);
       const tempSnapshot = await tempRef.once('value');
       let tempData = null;
@@ -41,8 +43,8 @@ const QRCodeScannerScreen = () => {
         const generatedUidKeys = Object.keys(generatedUidData);
         if (generatedUidKeys.includes(scannedUid)) {
           isTemporaryQR = true;
-          creatorUid = child.key; // Get the creator UID
-          tempData = generatedUidData[scannedUid]; // Get the temporary QR details
+          creatorUid = child.key;
+          tempData = generatedUidData[scannedUid];
         }
       });
   
@@ -51,12 +53,9 @@ const QRCodeScannerScreen = () => {
         return;
       }
   
-      // Check if the temporary QR is enabled
-      if (isTemporaryQR) {
-        if (!tempData || tempData.status !== 'enabled') {
-          Alert.alert('Error', 'This QR code is one-time use only and is already disabled.');
-          return;
-        }
+      if (isTemporaryQR && (!tempData || tempData.status !== 'enabled')) {
+        Alert.alert('Error', 'This QR code is one-time use only and is already disabled.');
+        return;
       }
   
       const userRef = database().ref(`/users/accounts/${creatorUid}`);
@@ -68,20 +67,28 @@ const QRCodeScannerScreen = () => {
       }
   
       const userData = userSnapshot.val();
-      const fareType = isTemporaryQR ? 'regular' : userData.type || 'regular';
+      let fareType = isTemporaryQR ? 'regular' : userData.acc_type?.toLowerCase() || 'regular';
   
       const fareRef = database().ref(`/fares/${fareType}`);
       const fareSnapshot = await fareRef.once('value');
   
       if (!fareSnapshot.exists()) {
-        Alert.alert('Error', 'Failed to fetch fare information.');
+        console.warn(`Fare type "${fareType}" not found. Falling back to "regular".`);
+        fareType = 'regular';
+      }
+  
+      const finalFareRef = database().ref(`/fares/${fareType}`);
+      const finalFareSnapshot = await finalFareRef.once('value');
+  
+      if (!finalFareSnapshot.exists()) {
+        Alert.alert('Error', 'Failed to fetch default fare information.');
         return;
       }
   
-      const fareData = fareSnapshot.val();
-      const baseFareDistanceMeters = 4000; // 4 km in meters (first 4 km)
+      const fareData = finalFareSnapshot.val();
+      const baseFareDistanceMeters = 4000;
       const baseFare = fareData.firstKm;
-      const additionalRatePerMeter = fareData.succeedingKm / 1000; // Fare per meter after 4 km
+      const additionalRatePerMeter = fareData.succeedingKm / 1000;
   
       const tripListRef = isTemporaryQR
         ? database().ref(`/trips/temporary/${creatorUid}`)
@@ -90,7 +97,6 @@ const QRCodeScannerScreen = () => {
       const tripListSnapshot = await tripListRef.once('value');
       let inProgressTripKey = null;
   
-      // Check for "in-progress" trip
       tripListSnapshot.forEach((child) => {
         if (child.val().status === 'in-progress') {
           inProgressTripKey = child.key;
@@ -101,105 +107,64 @@ const QRCodeScannerScreen = () => {
         async (position) => {
           const { latitude, longitude } = position.coords;
   
-          if (isTemporaryQR) {
-            if (inProgressTripKey) {
-              // **Second scan for temporary QR: Complete the trip and disable the QR**
-              const tripData = tripListSnapshot.child(inProgressTripKey).val();
-              const { latitude: startLat, longitude: startLong } = tripData.start_loc;
+          if (inProgressTripKey) {
+            const tripData = tripListSnapshot.child(inProgressTripKey).val();
+            const { latitude: startLat, longitude: startLong } = tripData.start_loc;
   
-              const distanceMeters = getDistance(
-                { latitude: startLat, longitude: startLong },
-                { latitude, longitude }
-              );
+            // **Mapbox Directions API request**
+            const directionsUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/${startLong},${startLat};${longitude},${latitude}?access_token=${MAPBOX_ACCESS_TOKEN}`;
+            
+            const response = await fetch(directionsUrl);
+            const routeData = await response.json();
   
-              let payment = baseFare;
-              if (distanceMeters > baseFareDistanceMeters) {
-                const extraMeters = distanceMeters - baseFareDistanceMeters;
-                payment += extraMeters * additionalRatePerMeter;
-              }
+            if (!response.ok || !routeData.routes || routeData.routes.length === 0) {
+              Alert.alert('Error', 'Failed to get route from Mapbox.');
+              return;
+            }
   
-              payment = parseFloat(payment.toFixed(2));
+            const distanceMeters = routeData.routes[0].distance; // Road distance in meters
+            let payment = baseFare;
+            if (distanceMeters > baseFareDistanceMeters) {
+              const extraMeters = distanceMeters - baseFareDistanceMeters;
+              payment += extraMeters * additionalRatePerMeter;
+            }
   
-              let newBalance = userData.wallet_balance || 0;
-              if (newBalance >= payment) {
-                newBalance -= payment;
-                await userRef.update({ wallet_balance: newBalance });
-              } else {
-                Alert.alert('Insufficient Balance', 'Wallet balance is not enough to complete the trip.');
-                return;
-              }
+            payment = parseFloat(payment.toFixed(2));
   
+            if (userData.wallet_balance >= payment) {
+              await userRef.update({ wallet_balance: userData.wallet_balance - payment });
               await tripListRef.child(inProgressTripKey).update({
                 stop_loc: { latitude, longitude },
-                distance: parseFloat((distanceMeters / 1000).toFixed(2)), // Convert to km
+                distance: parseFloat((distanceMeters / 1000).toFixed(2)),
                 payment,
                 status: 'completed',
               });
   
-              // **Disable the temporary QR to prevent reuse**
-              const tempQRRef = database().ref(`/temporary/${creatorUid}/${scannedUid}`);
-              await tempQRRef.update({ status: 'disabled' });
-  
-              Alert.alert('Trip Completed', `Fare: ₱${payment.toFixed(2)} has been deducted.`);
-            } else {
-              // **First scan for temporary QR: Start a new trip**
-              const newTripRef = tripListRef.push();
-              await newTripRef.set({
-                start_loc: { latitude, longitude },
-                stop_loc: null,
-                distance: 0,
-                payment: 0,
-                status: 'in-progress',
-                type: 'temporary',
-                timestamp: Date.now(),
+              await transactionsRef.push({
+                type: 'trip',
+                description: `Trip completed`,
+                amount: payment,
+                distance: parseFloat((distanceMeters / 1000).toFixed(2)),
+                status: 'completed',
+                createdAt: new Date().toISOString(),
               });
-              Alert.alert('Temporary Trip Started', 'New temporary trip has been started!');
+  
+              Alert.alert('Trip Completed', `Trip completed! Fare: ₱${payment.toFixed(2)}.`);
+            } else {
+              Alert.alert('Insufficient Balance', 'Wallet balance is not enough to complete the trip.');
             }
           } else {
-            if (inProgressTripKey) {
-              // **Original QR second scan: Complete trip**
-              const tripData = tripListSnapshot.child(inProgressTripKey).val();
-              const { latitude: startLat, longitude: startLong } = tripData.start_loc;
-  
-              const distanceMeters = getDistance(
-                { latitude: startLat, longitude: startLong },
-                { latitude, longitude }
-              );
-  
-              let payment = baseFare;
-              if (distanceMeters > baseFareDistanceMeters) {
-                const extraMeters = distanceMeters - baseFareDistanceMeters;
-                payment += extraMeters * additionalRatePerMeter;
-              }
-  
-              payment = parseFloat(payment.toFixed(2));
-  
-              if (userData.wallet_balance >= payment) {
-                await userRef.update({ wallet_balance: userData.wallet_balance - payment });
-                await tripListRef.child(inProgressTripKey).update({
-                  stop_loc: { latitude, longitude },
-                  distance: parseFloat((distanceMeters / 1000).toFixed(2)),
-                  payment,
-                  status: 'completed',
-                });
-                Alert.alert('Trip Completed', `Trip completed! Fare: ₱${payment.toFixed(2)}.`);
-              } else {
-                Alert.alert('Insufficient Balance', 'Wallet balance is not enough to complete the trip.');
-              }
-            } else {
-              // **Original QR first scan: Start a new trip**
-              const newTripRef = tripListRef.push();
-              await newTripRef.set({
-                start_loc: { latitude, longitude },
-                stop_loc: null,
-                distance: 0,
-                payment: 0,
-                status: 'in-progress',
-                type: fareType,
-                timestamp: Date.now(),
-              });
-              Alert.alert('Trip Started', 'New trip has been started!');
-            }
+            const newTripRef = tripListRef.push();
+            await newTripRef.set({
+              start_loc: { latitude, longitude },
+              stop_loc: null,
+              distance: 0,
+              payment: 0,
+              status: 'in-progress',
+              type: fareType,
+              timestamp: Date.now(),
+            });
+            Alert.alert('Trip Started', 'New trip has been started!');
           }
         },
         (error) => {

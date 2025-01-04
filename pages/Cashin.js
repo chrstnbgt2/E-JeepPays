@@ -1,12 +1,34 @@
-import React, { useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, TextInput, Alert } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  StyleSheet,
+  View,
+  Text,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  ActivityIndicator,
+} from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
+import auth from '@react-native-firebase/auth';
+import database from '@react-native-firebase/database';
 
 const CashInScreen = () => {
   const navigation = useNavigation();
   const [amount, setAmount] = useState('');
   const [selectedOption, setSelectedOption] = useState('');
+  const [userUid, setUserUid] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const currentUser = auth().currentUser;
+    if (currentUser) {
+      setUserUid(currentUser.uid);
+    } else {
+      Alert.alert('Error', 'You are not logged in.');
+      navigation.goBack();
+    }
+  }, []);
 
   const handleCashIn = () => {
     if (!selectedOption) {
@@ -19,31 +41,61 @@ const CashInScreen = () => {
       return;
     }
 
-    // Example placeholder for gateway integration
     Alert.alert(
       'Confirm Cash In',
       `You are about to cash in ₱${amount} using ${selectedOption}.`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Proceed', onPress: () => processPayment() },
+        { text: 'Proceed', onPress: () => mockCashIn() },
       ]
     );
   };
 
-  const processPayment = () => {
-    // Placeholder for payment gateway API call
-    Alert.alert(
-      'Payment Successful',
-      `You have successfully cashed in ₱${amount} via ${selectedOption}.`,
-      [{ text: 'OK', onPress: () => navigation.goBack() }]
-    );
+  const mockCashIn = async () => {
+    try {
+      setLoading(true);
 
-    // TODO: Implement actual payment gateway logic here
+      const cashInAmount = Number(amount);
+      const userRef = database().ref(`users/accounts/${userUid}`);
+
+      // Get the current wallet balance
+      const snapshot = await userRef.once('value');
+      const userData = snapshot.val();
+      const currentBalance = userData.wallet_balance || 0;
+
+      // Add cash-in amount to wallet
+      const newBalance = currentBalance + cashInAmount;
+
+      // Update wallet balance in Firebase
+      await userRef.update({ wallet_balance: newBalance });
+
+      const transactionData = {
+        userUid,
+        amount: cashInAmount,
+        paymentMethod: selectedOption,
+        status: 'completed',
+        createdAt: new Date().toISOString(),
+        type: 'cash_in',
+      };
+
+      // Log transaction in user's personal transactions
+      await database().ref(`users/accounts/${userUid}/transactions`).push(transactionData);
+
+      // Log transaction globally
+      await database().ref(`/transactions`).push(transactionData);
+
+      setLoading(false);
+      Alert.alert('Success', `You have successfully cashed in ₱${cashInAmount}.`);
+      navigation.goBack();
+    } catch (error) {
+      console.error('Error processing cash-in:', error);
+      Alert.alert('Error', 'Failed to process cash-in. Please try again.');
+      setLoading(false);
+    }
   };
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#000" />
@@ -51,42 +103,31 @@ const CashInScreen = () => {
         <Text style={styles.headerTitle}>Cash In</Text>
       </View>
 
-      {/* List of Choices */}
       <Text style={styles.sectionTitle}>Select a Payment Method</Text>
       <View style={styles.card}>
         <TouchableOpacity
-          style={[
-            styles.listItem,
-            selectedOption === 'GCash' && styles.selectedOption,
-          ]}
+          style={[styles.listItem, selectedOption === 'GCash' && styles.selectedOption]}
           onPress={() => setSelectedOption('GCash')}
         >
           <Text style={styles.listText}>GCash</Text>
           <Ionicons name="chevron-forward-outline" size={20} color="#000" />
         </TouchableOpacity>
         <TouchableOpacity
-          style={[
-            styles.listItem,
-            selectedOption === 'PayPal' && styles.selectedOption,
-          ]}
-          onPress={() => setSelectedOption('PayPal')}
+          style={[styles.listItem, selectedOption === 'PayMaya' && styles.selectedOption]}
+          onPress={() => setSelectedOption('PayMaya')}
         >
-          <Text style={styles.listText}>PayPal</Text>
+          <Text style={styles.listText}>PayMaya</Text>
           <Ionicons name="chevron-forward-outline" size={20} color="#000" />
         </TouchableOpacity>
         <TouchableOpacity
-          style={[
-            styles.listItem,
-            selectedOption === 'Bank Transfer' && styles.selectedOption,
-          ]}
-          onPress={() => setSelectedOption('Bank Transfer')}
+          style={[styles.listItem, selectedOption === 'Card' && styles.selectedOption]}
+          onPress={() => setSelectedOption('Card')}
         >
-          <Text style={styles.listText}>Bank Transfer</Text>
+          <Text style={styles.listText}>Card</Text>
           <Ionicons name="chevron-forward-outline" size={20} color="#000" />
         </TouchableOpacity>
       </View>
 
-      {/* Enter Amount */}
       <Text style={styles.sectionTitle}>Enter Amount</Text>
       <View style={styles.inputContainer}>
         <TextInput
@@ -98,10 +139,13 @@ const CashInScreen = () => {
         />
       </View>
 
-      {/* Cash In Button */}
-      <TouchableOpacity style={styles.cashInButton} onPress={handleCashIn}>
-        <Text style={styles.cashInButtonText}>Cash In</Text>
-      </TouchableOpacity>
+      {loading ? (
+        <ActivityIndicator size="large" color="#00695C" />
+      ) : (
+        <TouchableOpacity style={styles.cashInButton} onPress={handleCashIn}>
+          <Text style={styles.cashInButtonText}>Cash In</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
@@ -109,83 +153,61 @@ const CashInScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: '#F4F4F4',
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
   header: {
-    backgroundColor: '#F4F4F4',
-    paddingVertical: 15,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    position: 'relative',
+    marginBottom: 16,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#000',
-  },
-  backButton: {
-    position: 'absolute',
-    left: 20,
+    marginLeft: 16,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#000',
-    marginVertical: 15,
-    marginLeft: 20,
+    marginBottom: 8,
   },
   card: {
-    marginHorizontal: 20,
-    backgroundColor: '#F4F4F4',
-    borderRadius: 10,
-    paddingVertical: 5,
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    backgroundColor: '#FFF',
   },
   listItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E8E8E8',
+    paddingVertical: 12,
   },
   selectedOption: {
-    backgroundColor: '#D8E8D2',
-  },
-  listText: {
-    fontSize: 16,
-    color: '#000',
+    backgroundColor: '#E0F7FA',
   },
   inputContainer: {
-    marginHorizontal: 20,
-    backgroundColor: '#F4F4F4',
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   input: {
-    fontSize: 18,
-    color: '#000',
+    borderWidth: 1,
+    borderColor: '#CCC',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   cashInButton: {
-    backgroundColor: '#4E764E',
-    borderRadius: 10,
-    paddingVertical: 15,
+    backgroundColor: '#00695C',
+    paddingVertical: 12,
     alignItems: 'center',
-    marginHorizontal: 20,
+    borderRadius: 8,
   },
   cashInButtonText: {
-    color: '#FFFFFF',
+    color: '#FFF',
     fontSize: 16,
     fontWeight: 'bold',
   },
 });
 
 export default CashInScreen;
-
-
-

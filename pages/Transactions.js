@@ -1,14 +1,75 @@
 import { useNavigation } from '@react-navigation/native';
-import React from 'react';
-import { StyleSheet, View, Text, FlatList, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, View, Text, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
- 
+import database from '@react-native-firebase/database';
+import auth from '@react-native-firebase/auth';
+
 const HistoryScreen = () => {
+  const navigation = useNavigation();
+  const [transactions, setTransactions] = useState([]); // State for transactions
+  const [loading, setLoading] = useState(true); // Loading indicator
 
-const navigation = useNavigation();
-  // Dummy data for transactions
-  const transactions = Array(7).fill(null); // Seven blank transactions
+  useEffect(() => {
+    let transactionsRef;
 
+    const fetchTransactions = async () => {
+      const currentUser = auth().currentUser;
+      if (!currentUser) {
+        console.warn('No user is logged in.');
+        return;
+      }
+
+      const uid = currentUser.uid;
+
+      // Real-time listener for transactions
+      transactionsRef = database().ref(`users/accounts/${uid}/transactions`);
+      transactionsRef.on('value', (snapshot) => {
+        if (snapshot.exists()) {
+          const transactionData = snapshot.val();
+          const transactionList = Object.keys(transactionData).map((key) => ({
+            id: key,
+            ...transactionData[key],
+          }));
+          setTransactions(transactionList.reverse()); // Show latest transactions first
+        } else {
+          setTransactions([]);
+        }
+        setLoading(false);
+      });
+    };
+
+    fetchTransactions();
+
+    // Cleanup listener on unmount
+    return () => {
+      if (transactionsRef) transactionsRef.off('value');
+    };
+  }, []);
+
+  const formatDate = (timestamp) => {
+    if (!timestamp) return 'N/A';
+    const date = new Date(timestamp);
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const renderTransactionItem = ({ item }) => (
+    <View style={styles.transactionItem}>
+      <Text style={styles.transactionText}>
+        {item.type === 'trip'
+          ? `Trip: ₱${item.amount?.toFixed(2) || '0.00'} for a distance of ${item.distance?.toFixed(2) || '0.00'} km`
+          : `You Received: ₱${item.amount?.toFixed(2) || '0.00'}`}
+      </Text>
+      <Text style={styles.transactionDate}>{formatDate(item.createdAt)}</Text>
+    </View>
+  );
+  
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -18,20 +79,25 @@ const navigation = useNavigation();
 
       {/* Recent Transactions */}
       <View style={styles.transactionsHeader}>
-        <Text style={styles.transactionsTitle}>Recent Transaction</Text>
+        <Text style={styles.transactionsTitle}>Recent Transactions</Text>
         <TouchableOpacity>
           <Ionicons name="filter-outline" size={24} color="#000" />
         </TouchableOpacity>
       </View>
 
       {/* Transactions List */}
-      <FlatList
-        data={transactions}
-        renderItem={() => <View style={styles.transactionItem} />}
-        keyExtractor={(item, index) => index.toString()}
-        contentContainerStyle={styles.transactionsList}
-      />
- 
+      {loading ? (
+        <ActivityIndicator size="large" color="#8FCB81" style={{ marginTop: 20 }} />
+      ) : transactions.length > 0 ? (
+        <FlatList
+          data={transactions}
+          renderItem={renderTransactionItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.transactionsList}
+        />
+      ) : (
+        <Text style={styles.noTransactionsText}>No transactions available.</Text>
+      )}
     </View>
   );
 };
@@ -71,36 +137,24 @@ const styles = StyleSheet.create({
   },
   transactionItem: {
     backgroundColor: '#CCD9B8',
-    height: 50,
+    padding: 10,
     borderRadius: 10,
     marginBottom: 10,
   },
-  bottomNav: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: '#466B66',
-    height: 70,
-    borderTopLeftRadius: 15,
-    borderTopRightRadius: 15,
-    marginTop: 'auto',
+  transactionText: {
+    fontSize: 16,
+    color: '#000',
   },
-  navItem: {
-    alignItems: 'center',
-  },
-  activeNavItem: {
-    alignItems: 'center',
-  },
-  navText: {
+  transactionDate: {
     fontSize: 12,
-    color: '#FFFFFF',
+    color: '#666',
     marginTop: 5,
   },
-  activeNavText: {
-    fontSize: 12,
-    color: '#8FCB81',
-    marginTop: 5,
-    fontWeight: 'bold',
+  noTransactionsText: {
+    textAlign: 'center',
+    marginTop: 20,
+    fontSize: 16,
+    color: '#888',
   },
 });
 

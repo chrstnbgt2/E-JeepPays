@@ -1,4 +1,4 @@
- import React, { useEffect,useRef,useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -7,21 +7,43 @@ import {
   Image,
   ScrollView,
   ImageBackground,
+  Alert,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons'; 
+import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import Geolocation from 'react-native-geolocation-service';
 import database from '@react-native-firebase/database';
-import { geohashForLocation } from 'geofire-common'; 
+import { geohashForLocation } from 'geofire-common';
 import auth from '@react-native-firebase/auth';
-import { check, request, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
-import { DriverLocationContext } from '../context/DriverLocationContext';
+import { request, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
+import { useNavigation } from '@react-navigation/native';
 
 const HomeScreenDriver = () => {
+  const navigation = useNavigation();
   const [currentLocation, setCurrentLocation] = useState(null);
-  const watchIdRef = useRef(null); // To track the location watcher
-  const driverUid = auth().currentUser?.uid;
+  const [walletBalance, setWalletBalance] = useState(0);  
+  const watchIdRef = useRef(null);
+  const [username, setUsername] = useState('User');  
+  const driverUid = auth().currentUser?.uid;  
+
+  useEffect(() => {
+    if (driverUid) {
+      // Subscribe to the user's balance
+      const userRef = database().ref(`users/accounts/${driverUid}`);
+      const balanceListener = userRef.on('value', (snapshot) => {
+        const userData = snapshot.val();
+        if (userData) {
+          setWalletBalance(userData.wallet_balance || 0); 
+          setUsername(userData.firstName || 'Username');  
+        }
+      });
+
+      return () => {
+        userRef.off('value', balanceListener);  
+      };
+    }
+  }, [driverUid]);
 
   useEffect(() => {
     const requestLocationPermission = async () => {
@@ -41,7 +63,6 @@ const HomeScreenDriver = () => {
               const { latitude, longitude } = position.coords;
               setCurrentLocation([longitude, latitude]);
 
-              // Save driver's location to Firebase
               if (driverUid) {
                 updateDriverLocation(latitude, longitude, driverUid);
               }
@@ -69,14 +90,13 @@ const HomeScreenDriver = () => {
 
     requestLocationPermission();
 
-    // Cleanup function to remove location data and stop location tracking
     return () => {
       if (driverUid) {
         database().ref(`jeep_loc/${driverUid}`).remove();
       }
       if (watchIdRef.current !== null) {
         Geolocation.clearWatch(watchIdRef.current);
-        watchIdRef.current = null; // Reset watchIdRef to null
+        watchIdRef.current = null;
       }
     };
   }, [driverUid]);
@@ -103,20 +123,23 @@ const HomeScreenDriver = () => {
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <Text style={styles.welcomeText}>
-            Welcome! <Text style={styles.username}>@username</Text>
+            Welcome! <Text style={styles.username}>@{username}</Text>
           </Text>
           <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
         </View>
         <View style={styles.walletSection}>
           <View style={styles.walletInfo}>
-            <Text style={styles.walletBalance}>₱ 0.00</Text>
+            <Text style={styles.walletBalance}>₱ {walletBalance.toFixed(2)}</Text>
             <Text style={styles.walletLabel}>Wallet Balance</Text>
           </View>
           <Image
-            source={require('../assets/images/wallet-icon.png')} 
+            source={require('../assets/images/wallet-icon.png')}
             style={styles.walletIcon}
           />
-          <TouchableOpacity style={styles.cashInButton} onPress={() => navigation.navigate('CashIn')}>
+          <TouchableOpacity
+            style={styles.cashInButton}
+            onPress={() => navigation.navigate('CashIn')}
+          >
             <Text style={styles.cashInText}>Cash In</Text>
           </TouchableOpacity>
         </View>
@@ -126,13 +149,10 @@ const HomeScreenDriver = () => {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Dashboard</Text>
-          <Image
-            source={require('../assets/images/line.png')} 
-            style={styles.lineImage}
-          />
+          <Image source={require('../assets/images/line.png')} style={styles.lineImage} />
         </View>
         <View style={styles.dashboard}>
-          {/* Fare Rate Card */}
+          {/* Total Passenger Card */}
           <ImageBackground
             source={require('../assets/images/card-gradient.png')}
             style={styles.card}
@@ -140,17 +160,16 @@ const HomeScreenDriver = () => {
           >
             <MaterialCommunityIcons name="account-group" size={40} color="#FFFFFF" />
             <Text style={styles.cardValue}>43</Text>
-            <Text style={styles.cardLabel}>Total Passenger</Text>
+            <Text style={styles.cardLabel}>Total Passengers</Text>
           </ImageBackground>
 
-          {/* Distance Travelled Card */}
+          {/* Total Income Card */}
           <ImageBackground
             source={require('../assets/images/card-gradient.png')}
             style={styles.card}
             imageStyle={styles.cardImageBackground}
           >
             <FontAwesome5 name="coins" size={40} color="#FFFFFF" />
-           
             <Text style={styles.cardValue}>₱ 543</Text>
             <Text style={styles.cardLabel}>Total Income</Text>
           </ImageBackground>
@@ -159,22 +178,17 @@ const HomeScreenDriver = () => {
         {/* Transactions Section */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Transactions</Text>
-          <Image
-            source={require('../assets/images/line.png')} // Replace with your line.png path
-            style={styles.lineImage}
-          />
+          <Image source={require('../assets/images/line.png')} style={styles.lineImage} />
         </View>
         <View style={styles.transactionList}>
           <View style={styles.transactionItem}></View>
           <View style={styles.transactionItem}></View>
         </View>
       </ScrollView>
-
-     
-
     </View>
   );
 };
+
 
 const styles = StyleSheet.create({
   container: {

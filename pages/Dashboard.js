@@ -1,4 +1,4 @@
- import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -11,24 +11,23 @@ import {
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
 import { useNavigation } from '@react-navigation/native';
-import auth from '@react-native-firebase/auth'; // Firebase Authentication
-import database from '@react-native-firebase/database'; // Firebase Realtime Database
+import auth from '@react-native-firebase/auth';
+import database from '@react-native-firebase/database';
 
 const HomeScreen = () => {
   const navigation = useNavigation();
-  const [username, setUsername] = useState(''); // State for the username
-  const [fareRate, setFareRate] = useState('0.00'); // State for fare rate
-  const [walletBalance, setWalletBalance] = useState('0.00'); // State for wallet balance
-  const [accType, setAccType] = useState('Regular'); // State for account type
+  const [username, setUsername] = useState('');
+  const [fareRate, setFareRate] = useState('0.00');
+  const [walletBalance, setWalletBalance] = useState('0.00');
+  const [accType, setAccType] = useState('Regular');
+  const [latestTrip, setLatestTrip] = useState(null); // State for latest trip
+  const [latestTransaction, setLatestTransaction] = useState(null); // State for latest transaction
 
   useEffect(() => {
-    let userRef;
-    let walletRef;
-    let fareRef;
+    let userRef, fareRef, tripsRef, transactionsRef;
 
     const fetchData = async () => {
       try {
-        // Get the current logged-in user
         const currentUser = auth().currentUser;
         if (!currentUser) {
           console.warn('No user is currently logged in.');
@@ -43,21 +42,59 @@ const HomeScreen = () => {
           if (userSnapshot.exists()) {
             const userData = userSnapshot.val();
             setUsername(userData.firstName || '');
-            setWalletBalance(userData.wallet_balance || '0.00');
+            setWalletBalance(userData.wallet_balance ? userData.wallet_balance.toFixed(2) : '0.00');
             const userAccountType = userData.acc_type || 'Regular';
             setAccType(userAccountType);
 
-            // Real-time listener for fare rate based on account type
+            // Real-time listener for fare rate
             fareRef = database().ref(`fares/${userAccountType.toLowerCase()}/firstKm`);
             fareRef.on('value', (fareSnapshot) => {
               if (fareSnapshot.exists()) {
-                setFareRate(fareSnapshot.val());
+                setFareRate(fareSnapshot.val().toFixed(2));
               } else {
-                console.warn('No fare data found for this account type.');
+                console.warn('No fare data found.');
               }
             });
           } else {
-            console.warn('No user data found for the current UID.');
+            console.warn('No user data found.');
+          }
+        });
+
+        // Listener for trips
+        tripsRef = database().ref(`trips/${uid}`);
+        tripsRef.on('value', (snapshot) => {
+          if (snapshot.exists()) {
+            const tripData = snapshot.val();
+            const tripList = Object.keys(tripData).map((key) => ({
+              id: key,
+              ...tripData[key],
+            }));
+
+            // Get the latest completed trip by timestamp
+            const latestCompletedTrip = tripList
+              .filter((trip) => trip.status === 'completed')
+              .sort((a, b) => b.timestamp - a.timestamp)[0]; // Sort descending by timestamp and get the first
+            setLatestTrip(latestCompletedTrip || null);
+          } else {
+            setLatestTrip(null);
+          }
+        });
+
+        // Listener for transactions (cash-ins)
+        transactionsRef = database().ref(`users/accounts/${uid}/transactions`);
+        transactionsRef.on('value', (snapshot) => {
+          if (snapshot.exists()) {
+            const transactionData = snapshot.val();
+            const transactionList = Object.keys(transactionData).map((key) => ({
+              id: key,
+              ...transactionData[key],
+            }));
+
+            // Get the latest transaction by timestamp
+            const latestCashIn = transactionList.sort((a, b) => b.createdAt - a.createdAt)[0]; // Sort descending by createdAt and get the first
+            setLatestTransaction(latestCashIn || null);
+          } else {
+            setLatestTransaction(null);
           }
         });
       } catch (error) {
@@ -67,16 +104,28 @@ const HomeScreen = () => {
 
     fetchData();
 
-    // Cleanup listeners on unmount
     return () => {
       if (userRef) userRef.off('value');
       if (fareRef) fareRef.off('value');
+      if (tripsRef) tripsRef.off('value');
+      if (transactionsRef) transactionsRef.off('value');
     };
   }, []);
 
+  const formatDate = (timestamp) => {
+    if (!timestamp) return 'N/A';
+    const date = new Date(timestamp);
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
   return (
     <View style={styles.container}>
-      {/* Header Section */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <Text style={styles.welcomeText}>
@@ -102,7 +151,6 @@ const HomeScreen = () => {
         </View>
       </View>
 
-      {/* Dashboard Section */}
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Dashboard</Text>
@@ -112,7 +160,6 @@ const HomeScreen = () => {
           />
         </View>
         <View style={styles.dashboard}>
-          {/* Fare Rate Card */}
           <ImageBackground
             source={require('../assets/images/card-gradient.png')}
             style={styles.card}
@@ -123,35 +170,56 @@ const HomeScreen = () => {
             <Text style={styles.cardLabel}>{accType} Fare Rate</Text>
           </ImageBackground>
 
-          {/* Distance Travelled Card */}
           <ImageBackground
             source={require('../assets/images/card-gradient.png')}
             style={styles.card}
             imageStyle={styles.cardImageBackground}
           >
             <MaterialCommunityIcons name="road-variant" size={40} color="#FFFFFF" />
-            <Text style={styles.cardValue}>56 kms</Text>
-            <Text style={styles.cardLabel}>Distance Travelled</Text>
+            <Text style={styles.cardValue}>{latestTrip?.distance?.toFixed(2) || '0.00'} kms</Text>
+            <Text style={styles.cardLabel}>Last Trip Distance</Text>
           </ImageBackground>
         </View>
 
-            {/* Transactions Section */}
-            <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Transactions</Text>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Recent Transactions</Text>
           <Image
             source={require('../assets/images/line.png')}
             style={styles.lineImage}
           />
         </View>
+
         <View style={styles.transactionList}>
-          <View style={styles.transactionItem}></View>
-          <View style={styles.transactionItem}></View>
+          {latestTransaction ? (
+            <View style={styles.transactionItem}>
+              <Text style={styles.transactionText}>
+                Last Cash-In: ₱{(latestTransaction.amount || 0).toFixed(2)}
+              </Text>
+              <Text style={styles.transactionDate}>
+                {formatDate(latestTransaction.createdAt)}
+              </Text>
+            </View>
+          ) : (
+            <Text style={styles.noTransactionsText}>No cash-in transactions available.</Text>
+          )}
+
+          <Text style={styles.sectionTitle}>Last Completed Trip</Text>
+          {latestTrip ? (
+            <View style={styles.transactionItem}>
+              <Text style={styles.transactionText}>
+                Last Trip: ₱{(latestTrip.payment || 0).toFixed(2)} for{' '}
+                {(latestTrip.distance || 0).toFixed(2)} km
+              </Text>
+              <Text style={styles.transactionDate}>{formatDate(latestTrip.timestamp)}</Text>
+            </View>
+          ) : (
+            <Text style={styles.noTransactionsText}>No completed trips yet.</Text>
+          )}
         </View>
       </ScrollView>
     </View>
   );
 };
-
 
 const styles = StyleSheet.create({
   container: {
@@ -263,7 +331,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   transactionList: {
-    marginTop: 10,
+    marginTop: 0,
   },
   transactionItem: {
     backgroundColor: '#FFFFFF',
@@ -271,6 +339,10 @@ const styles = StyleSheet.create({
     height: 50,
     marginBottom: 10,
     elevation: 2,
+  }, transactionDate: {
+    fontSize: 12,
+    color: '#888',
+    marginTop: 4,
   },
 });
 
