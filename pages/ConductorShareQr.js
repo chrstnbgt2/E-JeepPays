@@ -82,20 +82,20 @@ const MyQRScreenShareConductor = () => {
       Alert.alert('Error', 'Please select a passenger type.');
       return;
     }
-
+  
     try {
       const currentUser = auth().currentUser;
       if (!currentUser) {
         Alert.alert('Error', 'You must be logged in to generate a QR code.');
         return;
       }
-
+  
       const userLoggedUid = currentUser.uid;
-
+  
       // Create a new temporary UID in Firebase
       const tempRef = database().ref(`temporary/${userLoggedUid}`).push();
-      const generatedUid = tempRef.key;
-
+      const generatedUid = tempRef.key; // This is the exact UID you want to store as the QR value
+  
       // Generate a random username
       const generateRandomUsername = () => {
         const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -105,36 +105,38 @@ const MyQRScreenShareConductor = () => {
         }
         return username;
       };
-
+  
       const randomUsername = generateRandomUsername();
-
+  
       // Save the temporary QR code data in Firebase
       const tempData = {
         createdAt: new Date().toISOString(),
         type: passengerType, // Regular or Discounted
         username: randomUsername,
       };
-
+  
       await tempRef.set(tempData);
-
+  
       console.log(`Temporary QR Code generated: ${generatedUid}`);
-
+  
+      // Set the QR code value as the exact UID
+      setQrValue(generatedUid); // Store the generated UID as the QR value
+  
       // Navigate to the GeneratedQRPage and pass QR details
       setModalVisible(false); // Close modal after generating
       navigation.navigate('GenerateQR', {
         passengerType,
         userId: userLoggedUid, // Pass the user's ID
-        qrValue: JSON.stringify({
-          userLoggedUid,
-          generatedUid,
-          username: randomUsername,
-        }),
+        qrValue: generatedUid, // Pass the exact generated UID as the QR code value
       });
     } catch (error) {
       console.error('Error generating temporary QR:', error);
       Alert.alert('Error', 'Failed to generate QR code. Please try again.');
     }
   };
+  
+
+
   return (
     <View style={styles.container}>
       {/* Header */}

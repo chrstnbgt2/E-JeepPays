@@ -95,7 +95,8 @@ const MyQRScreen = () => {
       const tempData = {
         createdAt: new Date().toISOString(),
         type: 'Regular',
-        username: randomUsername, // Add the random username here
+        username: randomUsername,
+        status:'enabled'
       };
   
       await tempRef.set(tempData);
@@ -110,6 +111,7 @@ const MyQRScreen = () => {
           userLoggedUid,
           generatedUid,
           username: randomUsername,
+          status:"enabled"
         }),
       });
     } catch (error) {
