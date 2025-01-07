@@ -26,6 +26,29 @@ const HomeScreenDriver = () => {
   const watchIdRef = useRef(null);
   const [username, setUsername] = useState('User');  
   const driverUid = auth().currentUser?.uid;  
+  const [latestTransactions, setLatestTransactions] = useState([]); 
+  useEffect(() => {
+    if (driverUid) {
+      const transactionsRef = database()
+        .ref(`users/accounts/${driverUid}/transactions`)
+        .orderByKey()
+        .limitToLast(1); // Fetch latest 2 transactions
+  
+      transactionsRef.on('value', (snapshot) => {
+        if (snapshot.exists()) {
+          const transactionList = Object.values(snapshot.val()).reverse();  
+          setLatestTransactions(transactionList);
+        } else {
+          setLatestTransactions([]);
+        }
+      });
+  
+      return () => {
+        transactionsRef.off('value');
+      };
+    }
+  }, [driverUid]);
+  
 
   useEffect(() => {
     if (driverUid) {
@@ -137,10 +160,10 @@ const HomeScreenDriver = () => {
             style={styles.walletIcon}
           />
           <TouchableOpacity
-            style={styles.cashInButton}
+            style={styles.cashOutButton}
             onPress={() => navigation.navigate('CashIn')}
           >
-            <Text style={styles.cashInText}>Cash In</Text>
+            <Text style={styles.cashOutText}>Cash In</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -181,8 +204,47 @@ const HomeScreenDriver = () => {
           <Image source={require('../assets/images/line.png')} style={styles.lineImage} />
         </View>
         <View style={styles.transactionList}>
-          <View style={styles.transactionItem}></View>
-          <View style={styles.transactionItem}></View>
+        {latestTransactions.length > 0 ? (
+  latestTransactions.map((transaction, index) => (
+    <View key={index} style={styles.transactionCard}>
+      <View style={styles.transactionHeader}>
+        <Ionicons
+          name={transaction.type === 'cash_out' ? 'wallet-outline' : 'car-outline'}
+          size={30}
+          color="#466B66"
+          style={styles.transactionIcon}
+        />
+        <View style={styles.transactionInfo}>
+          <Text style={styles.transactionTitle}>
+            {transaction.type === 'cash_out' ? 'Cash Out' : 'Trip Payment'}
+          </Text>
+          <Text style={styles.transactionDate}>
+            {new Date(transaction.createdAt).toLocaleString('en-US', {
+              year: 'numeric',
+              month: 'short',
+              day: '2-digit',
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
+          </Text>
+        </View>
+      </View>
+      <View style={styles.transactionDetails}>
+        <Text style={styles.transactionAmount}>
+         - ₱{transaction.amount?.toFixed(2) || '0.00'}
+        </Text>
+        {transaction.type === 'trip' && (
+          <Text style={styles.transactionDistance}>
+            Distance: {transaction.distance?.toFixed(2) || '0.00'} km
+          </Text>
+        )}
+      </View>
+    </View>
+  ))
+) : (
+  <Text style={styles.noTransactionsText}>No recent transactions available.</Text>
+)}
+
         </View>
       </ScrollView>
     </View>
@@ -239,13 +301,13 @@ const styles = StyleSheet.create({
     height: 50,
     marginRight: 10,
   },
-  cashInButton: {
+  cashOutButton: {
     backgroundColor: '#8FCB81',
     borderRadius: 20,
     paddingHorizontal: 15,
     paddingVertical: 8,
   },
-  cashInText: {
+  cashOutText: {
     fontSize: 14,
     color: '#FFFFFF',
     fontWeight: 'bold',
@@ -326,7 +388,58 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#FFFFFF',
     marginTop: 5,
+  },transactionCard: {
+    backgroundColor: '#FFF',
+    padding: 15,
+    borderRadius: 12,
+    marginBottom: 15,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    shadowOffset: { width: 0, height: 2 },
   },
+  transactionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  transactionIcon: {
+    marginRight: 15,
+  },
+  transactionInfo: {
+    flex: 1,
+  },
+  transactionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#466B66',
+  },
+  transactionDate: {
+    fontSize: 12,
+    color: '#777',
+  },
+  transactionDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  transactionAmount: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#466B66',
+  },
+  transactionDistance: {
+    fontSize: 14,
+    color: '#777',
+  },
+  noTransactionsText: {
+    textAlign: 'center',
+    fontSize: 16,
+    color: '#999',
+    marginTop: 20,
+  },
+  
 });
 
 export default HomeScreenDriver;

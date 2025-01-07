@@ -92,48 +92,56 @@ const MyQRScreenShareConductor = () => {
   
       const userLoggedUid = currentUser.uid;
   
-      // Create a new temporary UID in Firebase
-      const tempRef = database().ref(`temporary/${userLoggedUid}`).push();
-      const generatedUid = tempRef.key; // This is the exact UID you want to store as the QR value
+       const dailyCountRef = database().ref(`usernameCount/${userLoggedUid}`);
+      const currentDate = new Date().toISOString().split('T')[0]; 
   
-      // Generate a random username
-      const generateRandomUsername = () => {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-        let username = 'User_';
-        for (let i = 0; i < 8; i++) {
-          username += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return username;
-      };
+      let newUsernameCount = 1; 
+   
+      const snapshot = await dailyCountRef.once('value');
+      const data = snapshot.val();
   
-      const randomUsername = generateRandomUsername();
+      if (data && data.date === currentDate) {
+ 
+        newUsernameCount = data.count + 1;
+      }
   
-      // Save the temporary QR code data in Firebase
-      const tempData = {
+   
+      await dailyCountRef.set({
+        date: currentDate,
+        count: newUsernameCount,
+      });
+  
+       const tempRef = database().ref(`temporary/${userLoggedUid}`).push();
+      const generatedUid = tempRef.key;  
+  
+       const incrementingUsername = `${newUsernameCount}`;
+  
+       const tempData = {
         createdAt: new Date().toISOString(),
-        type: passengerType, // Regular or Discounted
-        username: randomUsername,
+        status: "enabled",
+        type: passengerType,
+        username: incrementingUsername,
       };
   
       await tempRef.set(tempData);
   
       console.log(`Temporary QR Code generated: ${generatedUid}`);
+      console.log(`Generated Username: ${incrementingUsername}`);
   
-      // Set the QR code value as the exact UID
-      setQrValue(generatedUid); // Store the generated UID as the QR value
+       setQrValue(generatedUid); 
   
-      // Navigate to the GeneratedQRPage and pass QR details
-      setModalVisible(false); // Close modal after generating
+       setModalVisible(false); 
       navigation.navigate('GenerateQR', {
         passengerType,
-        userId: userLoggedUid, // Pass the user's ID
-        qrValue: generatedUid, // Pass the exact generated UID as the QR code value
+        userId: userLoggedUid,  
+        qrValue: generatedUid,  
       });
     } catch (error) {
       console.error('Error generating temporary QR:', error);
       Alert.alert('Error', 'Failed to generate QR code. Please try again.');
     }
   };
+  
   
 
 
@@ -204,11 +212,11 @@ const MyQRScreenShareConductor = () => {
             </TouchableOpacity>
             <TouchableOpacity
               style={
-                passengerType === 'Discounted'
+                passengerType === 'Discount'
                   ? styles.selectedOption
                   : styles.option
               }
-              onPress={() => setPassengerType('Discounted')}
+              onPress={() => setPassengerType('Discount')}
             >
               <Text style={styles.optionText}>DISCOUNTED</Text>
             </TouchableOpacity>

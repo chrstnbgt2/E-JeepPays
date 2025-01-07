@@ -216,6 +216,8 @@ const HomeScreen = () => {
             <Text style={styles.noTransactionsText}>No completed trips yet.</Text>
           )}
         </View>
+
+        
       </ScrollView>
     </View>
   );

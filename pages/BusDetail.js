@@ -86,13 +86,14 @@ const CheckSeatScreen = () => {
                   <Text style={styles.detailValue}>{jeepDetails.capacity || 'N/A'}</Text>
                 </View>
                 <View style={styles.detailItem}>
+                  <Text style={styles.bold}>Available Seat:</Text>
+                  <Text style={styles.detailValue}>{jeepDetails.currentCapacity || 'N/A'}</Text>
+                </View>
+                <View style={styles.detailItem}>
                   <Text style={styles.bold}>Route:</Text>
                   <Text style={styles.detailValue}>{jeepDetails.route || 'N/A'}</Text>
                 </View>
-                <View style={styles.detailItem}>
-                  <Text style={styles.bold}>Status:</Text>
-                  <Text style={styles.detailValue}>{jeepDetails.status || 'N/A'}</Text>
-                </View>
+             
               </>
             ) : (
               <Text style={styles.noDetailsText}>No jeepney details available.</Text>

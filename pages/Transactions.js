@@ -19,9 +19,9 @@ const HistoryScreen = () => {
         console.warn('No user is logged in.');
         return;
       }
-
+    
       const uid = currentUser.uid;
-
+    
       // Real-time listener for transactions
       transactionsRef = database().ref(`users/accounts/${uid}/transactions`);
       transactionsRef.on('value', (snapshot) => {
@@ -31,13 +31,22 @@ const HistoryScreen = () => {
             id: key,
             ...transactionData[key],
           }));
-          setTransactions(transactionList.reverse()); // Show latest transactions first
+    
+          // Sort transactions by `createdAt` in descending order
+          const sortedTransactions = transactionList.sort((a, b) => {
+            const dateA = new Date(a.createdAt).getTime();
+            const dateB = new Date(b.createdAt).getTime();
+            return dateB - dateA; // Descending order (latest first)
+          });
+    
+          setTransactions(sortedTransactions); // Set sorted list
         } else {
           setTransactions([]);
         }
         setLoading(false);
       });
     };
+    
 
     fetchTransactions();
 
@@ -59,16 +68,40 @@ const HistoryScreen = () => {
     });
   };
 
-  const renderTransactionItem = ({ item }) => (
-    <View style={styles.transactionItem}>
-      <Text style={styles.transactionText}>
-        {item.type === 'trip'
-          ? `Trip: ₱${item.amount?.toFixed(2) || '0.00'} for a distance of ${item.distance?.toFixed(2) || '0.00'} km`
-          : `You Received: ₱${item.amount?.toFixed(2) || '0.00'}`}
-      </Text>
-      <Text style={styles.transactionDate}>{formatDate(item.createdAt)}</Text>
-    </View>
-  );
+  const renderTransactionItem = ({ item }) => {
+    const amount = parseFloat(item.amount) || 0; // Ensure amount is a number
+    const distance = parseFloat(item.distance) || 0; // Ensure distance is a number
+  
+    return (
+      <View style={styles.transactionCard}>
+        <View style={styles.transactionHeader}>
+          <Ionicons
+            name={item.type === 'trip' ? 'car-outline' : 'wallet-outline'}
+            size={30}
+            color="#466B66"
+            style={styles.transactionIcon}
+          />
+          <View style={styles.transactionInfo}>
+            <Text style={styles.transactionTitle}>
+              {item.type === 'trip' ? 'Trip Payment' : 'Cash In'}
+            </Text>
+            <Text style={styles.transactionDate}>{formatDate(item.createdAt)}</Text>
+          </View>
+        </View>
+        <View style={styles.transactionDetails}>
+          <Text style={styles.transactionAmount}>
+            ₱{amount.toFixed(2)}
+          </Text>
+          {item.type === 'trip' && (
+            <Text style={styles.transactionDistance}>
+              Distance: {distance.toFixed(2)} km
+            </Text>
+          )}
+        </View>
+      </View>
+    );
+  };
+  
   
   return (
     <View style={styles.container}>
@@ -105,7 +138,7 @@ const HistoryScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFF',
+    backgroundColor: '#F9F9F9',
   },
   header: {
     backgroundColor: '#F4F4F4',
@@ -125,36 +158,67 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    marginBottom: 10,
+    marginBottom: 15,
   },
   transactionsTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: 'bold',
-    color: '#000',
+    color: '#466B66',
   },
   transactionsList: {
     paddingHorizontal: 20,
   },
-  transactionItem: {
-    backgroundColor: '#CCD9B8',
-    padding: 10,
-    borderRadius: 10,
+  transactionCard: {
+    backgroundColor: '#FFFFFF',
+    padding: 15,
+    borderRadius: 15,
+    marginBottom: 15,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+  },
+  transactionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     marginBottom: 10,
   },
-  transactionText: {
-    fontSize: 16,
-    color: '#000',
+  transactionIcon: {
+    marginRight: 15,
+  },
+  transactionInfo: {
+    flex: 1,
+  },
+  transactionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#466B66',
   },
   transactionDate: {
     fontSize: 12,
-    color: '#666',
-    marginTop: 5,
+    color: '#777',
+    marginTop: 2,
+  },
+  transactionDetails: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  transactionAmount: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#8FCB81',
+  },
+  transactionDistance: {
+    fontSize: 14,
+    color: '#777',
   },
   noTransactionsText: {
     textAlign: 'center',
-    marginTop: 20,
     fontSize: 16,
-    color: '#888',
+    color: '#999',
+    marginTop: 20,
   },
 });
 

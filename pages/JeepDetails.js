@@ -89,13 +89,14 @@ const JeepDetailScreen = ({ route, navigation }) => {
                   <Text style={styles.detailValue}>{fullJeepDetails.capacity || 'N/A'}</Text>
                 </View>
                 <View style={styles.detailItem}>
+                  <Text style={styles.bold}>Available Seat:</Text>
+                  <Text style={styles.detailValue}>{fullJeepDetails.currentCapacity || 'N/A'}</Text>
+                </View>
+                <View style={styles.detailItem}>
                   <Text style={styles.bold}>Route:</Text>
                   <Text style={styles.detailValue}>{fullJeepDetails.route || 'N/A'}</Text>
                 </View>
-                <View style={styles.detailItem}>
-                  <Text style={styles.bold}>Status:</Text>
-                  <Text style={styles.detailValue}>{fullJeepDetails.status || 'N/A'}</Text>
-                </View>
+              
           
               </>
             ) : (
