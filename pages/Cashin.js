@@ -11,7 +11,11 @@ import {
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import auth from '@react-native-firebase/auth';
-import database from '@react-native-firebase/database';
+import axios from 'axios';
+import { Buffer } from 'buffer';
+import { PAYMONGO_SECRET_KEY } from '@env';
+
+global.Buffer = Buffer;
 
 const CashInScreen = () => {
   const navigation = useNavigation();
@@ -30,102 +34,104 @@ const CashInScreen = () => {
     }
   }, []);
 
-  const handleCashIn = () => {
+ 
+  const createPaymentSource = async (paymentMethod) => {
+    try {
+      const payload = {
+        data: {
+          attributes: {
+            type: paymentMethod.toLowerCase(), // 'gcash' or 'paymaya'
+            amount: Math.round(amount * 100), // Convert PHP to centavos
+            currency: 'PHP',
+            redirect: {
+              success: 'https://example.com/success', // Replace with your app's success URL
+              failed: 'https://example.com/failed',
+            },
+            billing: {
+              email: 'testuser@example.com', // Replace with actual user email
+              name: 'John Doe', // Optional name for billing
+            },
+          },
+        },
+      };
+  
+      const encodedKey = Buffer.from(`${PAYMONGO_SECRET_KEY}:`).toString('base64');
+  
+      const response = await axios.post(
+        `https://api.paymongo.com/v1/sources`,
+        payload,
+        {
+          headers: {
+            Authorization: `Basic ${encodedKey}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+  
+      return response.data.data; // Source data
+    } catch (error) {
+      console.error('Error creating Payment Source:', error.response?.data || error);
+      throw new Error('Failed to create payment source.');
+    }
+  };
+  
+  
+  const handleCashIn = async () => {
     if (!selectedOption) {
       Alert.alert('Select a Payment Option', 'Please choose a payment method to continue.');
       return;
     }
-
-    if (!amount || isNaN(amount) || Number(amount) <= 0) {
+  
+    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       Alert.alert('Invalid Amount', 'Please enter a valid cash-in amount.');
       return;
     }
-
-    Alert.alert(
-      'Confirm Cash In',
-      `You are about to cash in ₱${amount} using ${selectedOption}.`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Proceed', onPress: () => mockCashIn() },
-      ]
-    );
-  };
-
-  const mockCashIn = async () => {
+  
+    setLoading(true);
+  
     try {
-      setLoading(true);
-
-      const cashInAmount = Number(amount);
-      const userRef = database().ref(`users/accounts/${userUid}`);
-
-      // Get the current wallet balance
-      const snapshot = await userRef.once('value');
-      const userData = snapshot.val();
-      const currentBalance = userData.wallet_balance || 0;
-
-      // Add cash-in amount to wallet
-      const newBalance = currentBalance + cashInAmount;
-
-      // Update wallet balance in Firebase
-      await userRef.update({ wallet_balance: newBalance });
-
-      const transactionData = {
-        userUid,
-        amount: cashInAmount,
-        paymentMethod: selectedOption,
-        status: 'completed',
-        createdAt: new Date().toISOString(),
-        type: 'cash_in',
-      };
-
-      // Log transaction in user's personal transactions
-      await database().ref(`users/accounts/${userUid}/transactions`).push(transactionData);
-
-      // Log transaction globally
-      await database().ref(`/transactions`).push(transactionData);
-
-      setLoading(false);
-      Alert.alert('Success', `You have successfully cashed in ₱${cashInAmount}.`);
-      navigation.goBack();
+      // Step 1: Create Payment Source for GCash/PayMaya
+      const source = await createPaymentSource(selectedOption);
+      const checkoutUrl = source.attributes.redirect.checkout_url;
+      const sourceId = source.id;
+  
+      console.log('Source ID:', sourceId);
+      console.log('Redirect to:', checkoutUrl);
+      console.log('Amount passed:', Number(amount)); // Log to ensure valid value
+  
+      // Step 2: Navigate to WebView for Payment
+      navigation.navigate('WebViewScreen', { checkoutUrl, sourceId, amount: Number(amount) });
     } catch (error) {
-      console.error('Error processing cash-in:', error);
       Alert.alert('Error', 'Failed to process cash-in. Please try again.');
+      console.error('Error:', error);
       setLoading(false);
     }
   };
+  
+  
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color="#000" />
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} disabled={loading}>
+          <Ionicons name="arrow-back" size={24} color={loading ? '#ccc' : '#000'} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Cash In</Text>
       </View>
 
       <Text style={styles.sectionTitle}>Select a Payment Method</Text>
       <View style={styles.card}>
-        <TouchableOpacity
-          style={[styles.listItem, selectedOption === 'GCash' && styles.selectedOption]}
-          onPress={() => setSelectedOption('GCash')}
-        >
-          <Text style={styles.listText}>GCash</Text>
-          <Ionicons name="chevron-forward-outline" size={20} color="#000" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.listItem, selectedOption === 'PayMaya' && styles.selectedOption]}
-          onPress={() => setSelectedOption('PayMaya')}
-        >
-          <Text style={styles.listText}>PayMaya</Text>
-          <Ionicons name="chevron-forward-outline" size={20} color="#000" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.listItem, selectedOption === 'Card' && styles.selectedOption]}
-          onPress={() => setSelectedOption('Card')}
-        >
-          <Text style={styles.listText}>Card</Text>
-          <Ionicons name="chevron-forward-outline" size={20} color="#000" />
-        </TouchableOpacity>
+        {['GCash', 'PayMaya'].map((option) => (
+          <TouchableOpacity
+            key={option}
+            style={[styles.listItem, selectedOption === option && styles.selectedOption]}
+            onPress={() => setSelectedOption(option)}
+            disabled={loading}
+          >
+            <Text style={styles.listText}>{option}</Text>
+            <Ionicons name="chevron-forward-outline" size={20} color="#000" />
+          </TouchableOpacity>
+        ))}
       </View>
 
       <Text style={styles.sectionTitle}>Enter Amount</Text>
@@ -136,6 +142,7 @@ const CashInScreen = () => {
           keyboardType="numeric"
           value={amount}
           onChangeText={setAmount}
+          editable={!loading}
         />
       </View>
 
@@ -153,59 +160,62 @@ const CashInScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F4F4',
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    backgroundColor: '#fff',
+    padding: 16,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    paddingBottom: 16,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    marginLeft: 16,
+    marginLeft: 8,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 8,
+    fontWeight: '600',
+    marginVertical: 8,
   },
   card: {
+    backgroundColor: '#f9f9f9',
     borderRadius: 8,
-    padding: 12,
     marginBottom: 16,
-    backgroundColor: '#FFF',
   },
   listItem: {
+    padding: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
   },
   selectedOption: {
-    backgroundColor: '#E0F7FA',
+    backgroundColor: '#e0f7fa',
+  },
+  listText: {
+    fontSize: 16,
   },
   inputContainer: {
+    backgroundColor: '#f4f4f4',
+    borderRadius: 8,
+    padding: 8,
     marginBottom: 16,
   },
   input: {
-    borderWidth: 1,
-    borderColor: '#CCC',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    fontSize: 18,
+    padding: 8,
   },
   cashInButton: {
     backgroundColor: '#00695C',
-    paddingVertical: 12,
-    alignItems: 'center',
+    paddingVertical: 16,
     borderRadius: 8,
+    alignItems: 'center',
   },
   cashInButtonText: {
-    color: '#FFF',
-    fontSize: 16,
+    fontSize: 18,
+    color: '#fff',
     fontWeight: 'bold',
   },
 });

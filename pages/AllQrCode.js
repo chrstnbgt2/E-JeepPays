@@ -34,41 +34,30 @@ const DisplayAllQR_Conductor = () => {
     try {
       if (Platform.OS === 'android') {
         if (Platform.Version >= 33) {
-          console.log('Requesting READ_MEDIA_IMAGES permission');
           const result = await request(PERMISSIONS.ANDROID.READ_MEDIA_IMAGES);
-          console.log(`READ_MEDIA_IMAGES permission result: ${result}`);
           if (result === RESULTS.GRANTED) {
             console.log('READ_MEDIA_IMAGES permission granted');
             return true;
           } else {
-            console.log('READ_MEDIA_IMAGES permission denied');
-            Alert.alert(
-              'Permission Required',
-              'Please grant media storage permission to save QR codes.',
-              [{ text: 'OK', onPress: () => Linking.openSettings() }]
-            );
+            Alert.alert('Permission Required', 'Please grant media storage permission in settings.', [
+              { text: 'OK', onPress: () => Linking.openSettings() },
+            ]);
             return false;
           }
         } else if (Platform.Version >= 30) {
-          console.log('Requesting MANAGE_EXTERNAL_STORAGE permission');
           const result = await request(PERMISSIONS.ANDROID.MANAGE_EXTERNAL_STORAGE);
-          console.log(`MANAGE_EXTERNAL_STORAGE permission result: ${result}`);
           if (result === RESULTS.GRANTED) {
             console.log('MANAGE_EXTERNAL_STORAGE permission granted');
             return true;
           } else {
-            console.log('MANAGE_EXTERNAL_STORAGE permission denied');
-            Alert.alert(
-              'Permission Required',
-              'Please enable storage permission to save QR codes.',
-              [{ text: 'OK', onPress: () => Linking.openSettings() }]
-            );
+            Alert.alert('Permission Required', 'Please enable storage permission in settings.', [
+              { text: 'OK', onPress: () => Linking.openSettings() },
+            ]);
             return false;
           }
         }
       }
-      console.log('Permission check skipped for non-Android platforms or Android 10 and below');
-      return true; // No permissions required for Android 10 and below
+      return true; // No permissions required for Android 10 or lower
     } catch (error) {
       console.error('Error requesting permission:', error);
       return false;

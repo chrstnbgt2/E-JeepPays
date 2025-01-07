@@ -14,3 +14,4 @@
 -keep class com.rnfs.** {*;}
 -keep class androidx.camera.** {*;}
 -keep class com.facebook.imagepipeline.** {*;}
+-keep class com.zoontek.rnpermissions.** { *; }
