@@ -1,11 +1,11 @@
 buildscript {
     ext {
-        buildToolsVersion = "34.0.0"
-        minSdkVersion = 24  
-        compileSdkVersion = 34
-        targetSdkVersion = 34
-        ndkVersion = "26.1.10909125"
-        googlePlayServicesVersion = "21.0.1"
+        buildToolsVersion = "34.0.0"  // Latest build tools version
+        minSdkVersion = 24            // Minimum supported SDK version
+        compileSdkVersion = 34        // Android 14 (SDK 34)
+        targetSdkVersion = 34         // Android 14 target SDK
+        ndkVersion = "26.1.10909125"  // Latest NDK
+        googlePlayServicesVersion = "21.0.1" // Latest Google Play Services
     }
 
     repositories {
@@ -22,11 +22,12 @@ buildscript {
             }
         }
     }
+
     dependencies {
-        classpath("com.android.tools.build:gradle:8.0.2")
-        classpath("com.facebook.react:react-native-gradle-plugin")
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.24")
-        classpath("com.google.gms:google-services:4.4.2") // Add this line
+        classpath("com.android.tools.build:gradle:8.1.1") // Gradle 8.1.1 for Android Studio compatibility
+        classpath("com.facebook.react:react-native-gradle-plugin") // For React Native autolinking
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10") // Updated Kotlin Gradle Plugin
+        classpath("com.google.gms:google-services:4.4.2") // Updated Google Services Plugin
     }
 }
 

@@ -8,3 +8,9 @@
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
 # Add any project specific keep options here:
+
+-keep class com.facebook.react.** {*;}
+-keep class com.swmansion.gesturehandler.** {*;}
+-keep class com.rnfs.** {*;}
+-keep class androidx.camera.** {*;}
+-keep class com.facebook.imagepipeline.** {*;}

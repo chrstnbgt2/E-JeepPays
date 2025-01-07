@@ -32,6 +32,7 @@ import MyQRScreenShareConductor from './pages/ConductorShareQr';
 import GeneratedQRPage from './pages/GenerateQr';
 import AccountScreen from './pages/AccountScreen';
 import JeepDetailScreen from './pages/JeepDetails';
+import DisplayAllQR_Conductor from './pages/AllQrCode';
 
 // Navigators
 const AuthStack = createStackNavigator();
@@ -180,6 +181,7 @@ const App = () => {
         <RootStack.Screen name="AccountInformation" component={AccountScreen} />
         <RootStack.Screen name="JeepDetail" component={JeepDetailScreen} />
         <RootStack.Screen name="MyQR" component={MyQR} />
+        <RootStack.Screen name="AllQR" component={DisplayAllQR_Conductor} />
 
       </RootStack.Navigator>
     </NavigationContainer>

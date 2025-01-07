@@ -375,6 +375,12 @@ const QRCodeScannerScreen = () => {
           <Text style={styles.buttonText}>{isProcessing ? 'Uploading...' : 'Upload QR Code'}</Text>
         </TouchableOpacity>
       </View>
+      <View style={styles.buttonContainer}>
+        <TouchableOpacity style={styles.button3} onPress={() => navigation.navigate('AllQR')}>
+          <Text style={styles.buttonText}>View ALL QR Generated</Text>
+        </TouchableOpacity>
+        
+      </View>
     </View>
   );
 };
@@ -391,6 +397,7 @@ const styles = StyleSheet.create({
   buttonContainer: { flexDirection: 'row', justifyContent: 'space-around', marginTop: 20, paddingHorizontal: 20 },
   button1: { backgroundColor: '#74A059', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 5 },
   button2: { backgroundColor: '#4E764E', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 5 },
+  button3: { backgroundColor: '#215A3E', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 5 },
   buttonText: { color: '#FFF', fontSize: 14, fontWeight: '500' },
   centeredContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' },
   infoText: { color: '#fff', fontSize: 16, textAlign: 'center' },

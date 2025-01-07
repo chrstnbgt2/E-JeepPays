@@ -23,17 +23,20 @@ def enableProguardInReleaseBuilds = false
 def jscFlavor = 'org.webkit:android-jsc:+' // Switch to Hermes if desired
 
 android {
-    compileSdk rootProject.ext.compileSdkVersion
-    buildToolsVersion rootProject.ext.buildToolsVersion
-    ndkVersion rootProject.ext.ndkVersion
+    compileSdk 34 // Update to latest
+    buildToolsVersion "33.0.2" // Update to latest
+    ndkVersion "26.1.10909125"
 
     namespace "com.ejeeppays"
     defaultConfig {
         applicationId "com.ejeeppays"
-        minSdk 24 
-        targetSdk rootProject.ext.targetSdkVersion
+        minSdk 24 // Can increase to 26 if needed
+        targetSdk 34 // Update to latest (Android 13)ujb 
         versionCode 1
         versionName "1.0"
+
+        // Add for file permissions compatibility
+        vectorDrawables.useSupportLibrary = true
     }
 
     signingConfigs {
@@ -59,6 +62,16 @@ android {
     packagingOptions {
         resources.excludes += "/META-INF/{AL2.0,LGPL2.1}"
     }
+
+    // Add this to support request for MANAGE_EXTERNAL_STORAGE
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    kotlinOptions {
+          jvmTarget = '17'
+    }
 }
 
 dependencies {
@@ -75,13 +88,17 @@ dependencies {
     // Additional dependencies
     implementation "androidx.core:core-ktx:1.10.1"
     implementation "com.squareup.okhttp3:okhttp:4.9.3"
-    implementation "com.squareup.okhttp3:logging-interceptor:4.9.3" // Optional for debugging HTTP requests
+    implementation "com.squareup.okhttp3:logging-interceptor:4.9.3"
     implementation 'com.google.mlkit:barcode-scanning:17.3.0'
     implementation 'com.google.android.gms:play-services-location:21.0.1'
-    // Import the Firebase BoM
-    implementation platform('com.google.firebase:firebase-bom:33.7.0') // Add this line
 
-    // Add Firebase Analytics or any other Firebase service
-    implementation 'com.google.firebase:firebase-analytics' // Example
-    // Add other Firebase dependencies as needed
+    // Firebase BoM
+    implementation platform('com.google.firebase:firebase-bom:33.7.0')
+
+    // Firebase dependencies
+    implementation 'com.google.firebase:firebase-analytics'
+    implementation 'com.google.firebase:firebase-auth'
+    implementation 'com.google.firebase:firebase-database'
+
+  
 }
