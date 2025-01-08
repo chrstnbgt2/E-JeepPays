@@ -464,7 +464,7 @@ const QRCodeScannerScreen = () => {
       Alert.alert('Error', 'Failed to save trip data.');
     }
   };
- 
+  
   
 
   const codeScanner = useCodeScanner({
