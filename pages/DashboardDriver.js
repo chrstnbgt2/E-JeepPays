@@ -22,32 +22,122 @@ import { useNavigation } from '@react-navigation/native';
 const HomeScreenDriver = () => {
   const navigation = useNavigation();
   const [currentLocation, setCurrentLocation] = useState(null);
-  const [walletBalance, setWalletBalance] = useState(0);  
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [username, setUsername] = useState('User');
+  const [totalPassengers, setTotalPassengers] = useState(0);
+  const [totalIncome, setTotalIncome] = useState('0.00');
+  const [latestTransactions, setLatestTransactions] = useState([]);
+  const driverUid = auth().currentUser?.uid; // Get logged-in driver UID
   const watchIdRef = useRef(null);
-  const [username, setUsername] = useState('User');  
-  const driverUid = auth().currentUser?.uid;  
-  const [latestTransactions, setLatestTransactions] = useState([]); 
+
+ 
   useEffect(() => {
     if (driverUid) {
-      const transactionsRef = database()
-        .ref(`users/accounts/${driverUid}/transactions`)
-        .orderByKey()
-        .limitToLast(1); // Fetch latest 2 transactions
-  
-      transactionsRef.on('value', (snapshot) => {
+      const userRef = database().ref(`users/accounts/${driverUid}`);
+
+      userRef.on('value', async (snapshot) => {
         if (snapshot.exists()) {
-          const transactionList = Object.values(snapshot.val()).reverse();  
-          setLatestTransactions(transactionList);
-        } else {
-          setLatestTransactions([]);
+          const userData = snapshot.val();
+          setUsername(userData.firstName || 'Driver');
+          setWalletBalance(userData.wallet_balance || 0);
+
+          const jeepneyUid = userData.jeep_assigned;
+          if (!jeepneyUid) {
+            console.warn('No jeepney assigned to this driver.');
+            return;
+          }
+
+          // Fetch daily stats for the assigned jeepney
+          const today = new Date().toISOString().split('T')[0]; // Get today's date (YYYY-MM-DD)
+          const jeepneyStatsRef = database().ref(`/jeepneys/${jeepneyUid}/dailyStats/${today}`);
+
+          jeepneyStatsRef.on('value', (statsSnapshot) => {
+            if (statsSnapshot.exists()) {
+              const statsData = statsSnapshot.val();
+              setTotalPassengers(statsData.totalPassengers || 0); // Update total passengers
+              setTotalIncome(parseFloat(statsData.totalIncome || 0).toFixed(2)); // Update total income
+            } else {
+              setTotalPassengers(0);
+              setTotalIncome('0.00');
+            }
+          });
+
+          // Fetch latest transactions
+          const transactionsRef = database()
+            .ref(`users/accounts/${driverUid}/transactions`)
+            .orderByKey()
+            .limitToLast(2); // Fetch last 2 transactions
+          transactionsRef.on('value', (snapshot) => {
+            if (snapshot.exists()) {
+              const transactionList = Object.values(snapshot.val()).reverse();
+              setLatestTransactions(transactionList);
+            } else {
+              setLatestTransactions([]);
+            }
+          });
         }
       });
-  
+
       return () => {
-        transactionsRef.off('value');
+        userRef.off('value');
       };
     }
   }, [driverUid]);
+
+  const formatDate = (timestamp) => {
+    if (!timestamp) return 'N/A';
+    const date = new Date(timestamp);
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  const renderTransactionCard = (transaction, index) => {
+    const amount = parseFloat(transaction.amount) || 0;
+    let iconName = 'wallet-outline';
+    let transactionTitle = 'Cash In';
+    let color = '#466B66';
+  
+    if (transaction.type === 'trip') {
+      iconName = 'car-outline';
+      transactionTitle = 'Trip Payment';
+    } else if (transaction.type === 'cash_out') {
+      iconName = 'arrow-down-outline';
+      transactionTitle = 'Cash Out';
+      color = '#FF6B6B'; // Red for cash out
+    } else if (transaction.type === 'received') {
+      iconName = 'arrow-up-outline'; // Icon for received
+      transactionTitle = 'Received';
+      color = '#4CAF50'; // Green for received
+    }
+  
+    return (
+      <View key={index} style={styles.transactionCard}>
+        <View style={styles.transactionHeader}>
+          <Ionicons name={iconName} size={30} color={color} style={styles.transactionIcon} />
+          <View style={styles.transactionInfo}>
+            <Text style={styles.transactionTitle}>{transactionTitle}</Text>
+            <Text style={styles.transactionDate}>{formatDate(transaction.createdAt)}</Text>
+          </View>
+        </View>
+        <View style={styles.transactionDetails}>
+          <Text style={[styles.transactionAmount, { color }]}>₱{amount.toFixed(2)}</Text>
+          {transaction.type === 'trip' && (
+            <Text style={styles.transactionDistance}>
+              Distance: {transaction.distance?.toFixed(2) || '0.00'} km
+            </Text>
+          )}
+          {transaction.type === 'received' && transaction.sender && (
+            <Text style={styles.transactionDetailsText}>From: {transaction.sender}</Text>
+          )}
+        </View>
+      </View>
+    );
+  };
   
 
   useEffect(() => {
@@ -161,9 +251,9 @@ const HomeScreenDriver = () => {
           />
           <TouchableOpacity
             style={styles.cashOutButton}
-            onPress={() => navigation.navigate('CashIn')}
+            onPress={() => navigation.navigate('Cashout')}
           >
-            <Text style={styles.cashOutText}>Cash In</Text>
+            <Text style={styles.cashOutText}>Cash Out</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -182,7 +272,7 @@ const HomeScreenDriver = () => {
             imageStyle={styles.cardImageBackground}
           >
             <MaterialCommunityIcons name="account-group" size={40} color="#FFFFFF" />
-            <Text style={styles.cardValue}>43</Text>
+            <Text style={styles.cardValue}>{totalPassengers}</Text>
             <Text style={styles.cardLabel}>Total Passengers</Text>
           </ImageBackground>
 
@@ -193,7 +283,7 @@ const HomeScreenDriver = () => {
             imageStyle={styles.cardImageBackground}
           >
             <FontAwesome5 name="coins" size={40} color="#FFFFFF" />
-            <Text style={styles.cardValue}>₱ 543</Text>
+            <Text style={styles.cardValue}>₱ {totalIncome}</Text>
             <Text style={styles.cardLabel}>Total Income</Text>
           </ImageBackground>
         </View>
@@ -205,45 +295,10 @@ const HomeScreenDriver = () => {
         </View>
         <View style={styles.transactionList}>
         {latestTransactions.length > 0 ? (
-  latestTransactions.map((transaction, index) => (
-    <View key={index} style={styles.transactionCard}>
-      <View style={styles.transactionHeader}>
-        <Ionicons
-          name={transaction.type === 'cash_out' ? 'wallet-outline' : 'car-outline'}
-          size={30}
-          color="#466B66"
-          style={styles.transactionIcon}
-        />
-        <View style={styles.transactionInfo}>
-          <Text style={styles.transactionTitle}>
-            {transaction.type === 'cash_out' ? 'Cash Out' : 'Trip Payment'}
-          </Text>
-          <Text style={styles.transactionDate}>
-            {new Date(transaction.createdAt).toLocaleString('en-US', {
-              year: 'numeric',
-              month: 'short',
-              day: '2-digit',
-              hour: '2-digit',
-              minute: '2-digit',
-            })}
-          </Text>
-        </View>
-      </View>
-      <View style={styles.transactionDetails}>
-        <Text style={styles.transactionAmount}>
-         - ₱{transaction.amount?.toFixed(2) || '0.00'}
-        </Text>
-        {transaction.type === 'trip' && (
-          <Text style={styles.transactionDistance}>
-            Distance: {transaction.distance?.toFixed(2) || '0.00'} km
-          </Text>
-        )}
-      </View>
-    </View>
-  ))
-) : (
-  <Text style={styles.noTransactionsText}>No recent transactions available.</Text>
-)}
+            latestTransactions.map((transaction, index) => renderTransactionCard(transaction, index))
+          ) : (
+            <Text style={styles.noTransactionsText}>No recent transactions available.</Text>
+          )}
 
         </View>
       </ScrollView>

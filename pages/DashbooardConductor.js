@@ -17,12 +17,17 @@ import database from '@react-native-firebase/database';
 
 const HomeScreenConductor = () => {
   const navigation = useNavigation();
-  const [username, setUsername] = useState(''); // To store firstName of user
-  const [walletBalance, setWalletBalance] = useState('0.00'); // To store wallet balance of user
-
+  const [username, setUsername] = useState('');  
+  const [walletBalance, setWalletBalance] = useState('0.00');  
+  const [totalPassengers, setTotalPassengers] = useState(0); 
+  const [totalIncome, setTotalIncome] = useState(0.0);  
+  const [latestTransactions, setLatestTransactions] = useState([]);
+ 
+  
   useEffect(() => {
-    let userRef;
-    const fetchUserDetails = async () => {
+    let userRef, jeepneyStatsRef, transactionsRef;
+
+    const fetchUserAndStats = async () => {
       try {
         const currentUser = auth().currentUser;
         if (!currentUser) {
@@ -30,31 +35,132 @@ const HomeScreenConductor = () => {
           return;
         }
 
-        const uid = currentUser.uid;
-        userRef = database().ref(`users/accounts/${uid}`);
+        const conductorUid = currentUser.uid;
+        userRef = database().ref(`users/accounts/${conductorUid}`);
 
         // Real-time listener for user details
-        userRef.on('value', (snapshot) => {
+        userRef.on('value', async (snapshot) => {
           if (snapshot.exists()) {
             const userData = snapshot.val();
-            setUsername(userData.firstName || 'User'); // Default to "User" if firstName is missing
-            setWalletBalance(userData.wallet_balance?.toFixed(2) || '0.00'); // Format balance to 2 decimal places
+            setUsername(userData.firstName || 'User');
+            setWalletBalance(userData.wallet_balance?.toFixed(2) || '0.00');
+
+            const driverUid = userData.creatorUid;
+            if (!driverUid) {
+              console.warn('No linked driver found.');
+              return;
+            }
+
+            const driverSnapshot = await database().ref(`/users/accounts/${driverUid}`).once('value');
+            if (!driverSnapshot.exists()) {
+              console.warn('Driver account not found.');
+              return;
+            }
+
+            const driverData = driverSnapshot.val();
+            const jeepneyUid = driverData.jeep_assigned;
+            if (!jeepneyUid) {
+              console.warn('No jeepney assigned.');
+              return;
+            }
+
+            const today = new Date().toISOString().split('T')[0];
+            jeepneyStatsRef = database().ref(`/jeepneys/${jeepneyUid}/dailyStats/${today}`);
+
+            // Listener for daily stats (total income and passengers)
+            jeepneyStatsRef.on('value', (statsSnapshot) => {
+              if (statsSnapshot.exists()) {
+                const statsData = statsSnapshot.val();
+                setTotalPassengers(statsData.totalPassengers || 0);
+                setTotalIncome(parseFloat(statsData.totalIncome || 0).toFixed(2));
+              } else {
+                setTotalPassengers(0);
+                setTotalIncome('0.00');
+              }
+            });
+
+            // Fetch latest 2 transactions
+            transactionsRef = database().ref(`users/accounts/${conductorUid}/transactions`);
+            transactionsRef.on('value', (snapshot) => {
+              if (snapshot.exists()) {
+                const transactionData = snapshot.val();
+                const transactionList = Object.keys(transactionData).map((key) => ({
+                  id: key,
+                  ...transactionData[key],
+                }));
+
+                const latestTwoTransactions = transactionList
+                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                  .slice(0, 2);
+
+                setLatestTransactions(latestTwoTransactions);
+              } else {
+                setLatestTransactions([]);
+              }
+            });
           } else {
             console.warn('No user data found.');
           }
         });
       } catch (error) {
-        console.error('Error fetching user details:', error);
+        console.error('Error fetching user and stats:', error);
       }
     };
 
-    fetchUserDetails();
+    fetchUserAndStats();
 
-    // Cleanup the listener when component unmounts
     return () => {
       if (userRef) userRef.off('value');
+      if (jeepneyStatsRef) jeepneyStatsRef.off('value');
+      if (transactionsRef) transactionsRef.off('value');
     };
   }, []);
+
+  const formatDate = (timestamp) => {
+    if (!timestamp) return 'N/A';
+    const date = new Date(timestamp);
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+  const renderTransactionCard = (item) => {
+    const amount = parseFloat(item.amount) || 0;
+    const distance = parseFloat(item.distance) || 0;
+
+    let iconName = 'wallet-outline';
+    let transactionTitle = 'Cash In';
+    let color = '#466B66';
+
+    if (item.type === 'trip') {
+      iconName = 'car-outline';
+      transactionTitle = 'Trip Payment';
+    } else if (item.type === 'cash_out') {
+      iconName = 'arrow-down-outline';
+      transactionTitle = 'Cash Out';
+      color = '#FF6B6B';
+    }
+
+    return (
+      <View key={item.id} style={styles.transactionCard}>
+        <View style={styles.transactionHeader}>
+          <Ionicons name={iconName} size={32} color={color} style={styles.transactionIcon} />
+          <View style={styles.transactionInfo}>
+            <Text style={styles.transactionTitle}>{transactionTitle}</Text>
+            <Text style={styles.transactionDate}>{formatDate(item.createdAt)}</Text>
+          </View>
+        </View>
+        <View style={styles.transactionDetails}>
+          <Text style={[styles.transactionAmount, { color }]}>₱{amount.toFixed(2)}</Text>
+          {item.type === 'trip' && <Text style={styles.transactionDistance}>Distance: {distance.toFixed(2)} km</Text>}
+        </View>
+      </View>
+    );
+  };
+
 
   return (
     <View style={styles.container}>
@@ -75,8 +181,11 @@ const HomeScreenConductor = () => {
             source={require('../assets/images/wallet-icon.png')}
             style={styles.walletIcon}
           />
-          <TouchableOpacity style={styles.cashInButton} onPress={() => navigation.navigate('CashIn')}>
+           <TouchableOpacity style={styles.cashInButton} onPress={() => navigation.navigate('CashIn')}>
             <Text style={styles.cashInText}>Cash In</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.cashInButton1} onPress={() => navigation.navigate('Transfer')}>
+            <Text style={styles.cashInText}>Transfer</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -98,7 +207,7 @@ const HomeScreenConductor = () => {
             imageStyle={styles.cardImageBackground}
           >
             <MaterialCommunityIcons name="account-group" size={40} color="#FFFFFF" />
-            <Text style={styles.cardValue}>43</Text>
+            <Text style={styles.cardValue}>{totalPassengers}</Text>
             <Text style={styles.cardLabel}>Total Passenger</Text>
           </ImageBackground>
 
@@ -109,23 +218,20 @@ const HomeScreenConductor = () => {
             imageStyle={styles.cardImageBackground}
           >
             <FontAwesome5 name="coins" size={40} color="#FFFFFF" />
-            <Text style={styles.cardValue}>₱ 543</Text>
+            <Text style={styles.cardValue}>₱{totalIncome}</Text>
             <Text style={styles.cardLabel}>Total Income</Text>
           </ImageBackground>
         </View>
 
         {/* Transactions Section */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Transactions</Text>
-          <Image
-            source={require('../assets/images/line.png')}
-            style={styles.lineImage}
-          />
+          <Text style={styles.sectionTitle}>Recent Transactions</Text>
         </View>
-        <View style={styles.transactionList}>
-          <View style={styles.transactionItem}></View>
-          <View style={styles.transactionItem}></View>
-        </View>
+        {latestTransactions.length > 0 ? (
+          latestTransactions.map((transaction) => renderTransactionCard(transaction))
+        ) : (
+          <Text style={styles.noTransactionsText}>No recent transactions available.</Text>
+        )}
       </ScrollView>
     </View>
   );
@@ -185,6 +291,13 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 15,
     paddingVertical: 8,
+  },
+   cashInButton1: {
+    backgroundColor: '#CCD9B8',
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    marginLeft:5,
   },
   cashInText: {
     fontSize: 14,
@@ -267,6 +380,54 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#FFFFFF',
     marginTop: 5,
+  },transactionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  transactionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  transactionIcon: {
+    marginRight: 15,
+  },
+  transactionInfo: {
+    flex: 1,
+  },
+  transactionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#466B66',
+  },
+  transactionDate: {
+    fontSize: 12,
+    color: '#777',
+  },
+  transactionDetails: {
+    marginTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  transactionAmount: {
+    fontSize: 20,
+    fontWeight: 'bold',
+  },
+  transactionDistance: {
+    fontSize: 14,
+    color: '#777',
+  },
+  noTransactionsText: {
+    textAlign: 'center',
+    fontSize: 16,
+    color: '#999',
+    marginTop: 10,
   },
 });
 

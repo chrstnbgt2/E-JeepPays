@@ -87,7 +87,7 @@ const WebViewScreen = ({ route, navigation }) => {
         throw new Error('User is not logged in.');
       }
 
-      const userUid = currentUser.uid; // Get user UID from auth
+      const userUid = currentUser.uid;  
       console.log(`Updating wallet for user UID: ${userUid}`);
 
       const userRef = database().ref(`users/accounts/${userUid}`);
@@ -125,9 +125,9 @@ const WebViewScreen = ({ route, navigation }) => {
     if (url.includes('success')) {
       try {
         console.log('Polling source for status...');
-        await waitForSourceProcessing(sourceId); // Poll the source until it's chargeable
-        const payment = await createPayment(sourceId); // Confirm the payment
-        await updateWalletBalance(Number(amount)); // Update wallet balance if payment is successful
+        await waitForSourceProcessing(sourceId);  
+        const payment = await createPayment(sourceId);  
+        await updateWalletBalance(Number(amount));  
         Alert.alert('Payment Successful', `₱${amount} has been added to your wallet.`);
         navigation.goBack();
       } catch (error) {

@@ -34,6 +34,8 @@ import AccountScreen from './pages/AccountScreen';
 import JeepDetailScreen from './pages/JeepDetails';
 import DisplayAllQR_Conductor from './pages/AllQrCode';
 import WebViewScreen from './pages/WebViewScreen';
+import CashOutScreen from './pages/CashOut';
+import TransferScreen from './pages/Transfer';
 
 // Navigators
 const AuthStack = createStackNavigator();
@@ -184,6 +186,8 @@ const App = () => {
         <RootStack.Screen name="MyQR" component={MyQR} />
         <RootStack.Screen name="AllQR" component={DisplayAllQR_Conductor} />
         <RootStack.Screen name="WebViewScreen" component={WebViewScreen} />
+        <RootStack.Screen name="Cashout" component={CashOutScreen} />
+        <RootStack.Screen name="Transfer" component={TransferScreen} />
 
       </RootStack.Navigator>
     </NavigationContainer>

@@ -11,102 +11,101 @@ import {
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import auth from '@react-native-firebase/auth';
+import database from '@react-native-firebase/database';
 import axios from 'axios';
 import { Buffer } from 'buffer';
 import { PAYMONGO_SECRET_KEY } from '@env';
 
 global.Buffer = Buffer;
 
-const CashInScreen = () => {
+const CashOutScreen = () => {
   const navigation = useNavigation();
   const [amount, setAmount] = useState('');
   const [selectedOption, setSelectedOption] = useState('');
   const [userUid, setUserUid] = useState('');
-  const [userEmail, setUserEmail] = useState('');
-  const [userName, setUserName] = useState('');
+  const [currentBalance, setCurrentBalance] = useState(0);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const currentUser = auth().currentUser;
     if (currentUser) {
       setUserUid(currentUser.uid);
-      setUserEmail(currentUser.email || 'no-email@example.com'); // Default fallback
-      setUserName(currentUser.displayName || 'Guest User'); // Default fallback if display name is not set
+      fetchWalletBalance(currentUser.uid);
     } else {
       Alert.alert('Error', 'You are not logged in.');
       navigation.goBack();
     }
   }, []);
 
-  const createPaymentSource = async (paymentMethod) => {
+  const fetchWalletBalance = async (uid) => {
     try {
-      const payload = {
-        data: {
-          attributes: {
-            type: paymentMethod.toLowerCase(), // 'gcash' or 'paymaya'
-            amount: Math.round(amount * 100), // Convert PHP to centavos
-            currency: 'PHP',
-            redirect: {
-              success: 'https://example.com/success',  
-              failed: 'https://example.com/failed',
-            },
-            billing: {
-              email: userEmail,  
-              name: userName,   
-            },
-          },
-        },
-      };
-  
-      const encodedKey = Buffer.from(`${PAYMONGO_SECRET_KEY}:`).toString('base64');
-  
-      const response = await axios.post(
-        `https://api.paymongo.com/v1/sources`,
-        payload,
-        {
-          headers: {
-            Authorization: `Basic ${encodedKey}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-  
-      return response.data.data;  
+      const userRef = database().ref(`users/accounts/${uid}`);
+      const snapshot = await userRef.once('value');
+      const userData = snapshot.val();
+      const balance = userData?.wallet_balance || 0;
+      setCurrentBalance(balance);
     } catch (error) {
-      console.error('Error creating Payment Source:', error.response?.data || error);
-      throw new Error('Failed to create payment source.');
+      console.error('Error fetching wallet balance:', error);
     }
   };
 
-  const handleCashIn = async () => {
+  const handleCashOut = async () => {
     if (!selectedOption) {
-      Alert.alert('Select a Payment Option', 'Please choose a payment method to continue.');
+      Alert.alert('Select a Payment Option', 'Please choose a cash-out method.');
       return;
     }
-  
+
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid cash-in amount.');
+      Alert.alert('Invalid Amount', 'Please enter a valid cash-out amount.');
       return;
     }
-  
+
+    if (Number(amount) > currentBalance) {
+      Alert.alert('Insufficient Balance', 'You do not have enough balance to cash out this amount.');
+      return;
+    }
+
     setLoading(true);
-  
+
     try {
-      // Step 1: Create Payment Source for GCash/PayMaya
-      const source = await createPaymentSource(selectedOption);
-      const checkoutUrl = source.attributes.redirect.checkout_url;
-      const sourceId = source.id;
-  
-      console.log('Source ID:', sourceId);
-      console.log('Redirect to:', checkoutUrl);
-      console.log('Amount passed:', Number(amount)); // Log to ensure valid value
-  
-      // Step 2: Navigate to WebView for Payment
-      navigation.navigate('WebViewScreen', { checkoutUrl, sourceId, amount: Number(amount) });
+      // Mock API call to create cash-out request
+      await createCashOutTransaction(selectedOption, Number(amount));
+
+      Alert.alert('Cash-Out Request Sent', `Your ₱${amount} cash-out request has been submitted.`);
+      navigation.goBack(); // Navigate back after success
     } catch (error) {
-      Alert.alert('Error', 'Failed to process cash-in. Please try again.');
+      Alert.alert('Error', 'Failed to process cash-out. Please try again.');
       console.error('Error:', error);
+    } finally {
       setLoading(false);
+    }
+  };
+
+  const createCashOutTransaction = async (method, cashOutAmount) => {
+    try {
+      const userRef = database().ref(`users/accounts/${userUid}`);
+
+      // Subtract cash-out amount from wallet balance
+      const newBalance = currentBalance - cashOutAmount;
+      await userRef.update({ wallet_balance: newBalance });
+
+      // Log the cash-out transaction
+      const transactionData = {
+        userUid,
+        amount: cashOutAmount,
+        paymentMethod: method,
+        status: 'completed', 
+        createdAt: new Date().toISOString(),
+        type: 'cash_out',
+      };
+
+      await database().ref(`users/accounts/${userUid}/transactions`).push(transactionData);
+      await database().ref('/transactions').push(transactionData); // Log globally
+
+      console.log('Cash-out transaction logged:', transactionData);
+    } catch (error) {
+      console.error('Error creating cash-out transaction:', error);
+      throw new Error('Failed to create cash-out transaction.');
     }
   };
 
@@ -116,12 +115,14 @@ const CashInScreen = () => {
         <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} disabled={loading}>
           <Ionicons name="arrow-back" size={24} color={loading ? '#ccc' : '#000'} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Cash In</Text>
+        <Text style={styles.headerTitle}>Cash Out</Text>
       </View>
 
-      <Text style={styles.sectionTitle}>Select a Payment Method</Text>
+      <Text style={styles.sectionTitle}>Available Balance: ₱{currentBalance.toFixed(2)}</Text>
+
+      <Text style={styles.sectionTitle}>Select a Cash-Out Method</Text>
       <View style={styles.card}>
-        {['GCash', 'PayMaya'].map((option) => (
+        {['GCash', 'PayMaya', 'Bank Transfer'].map((option) => (
           <TouchableOpacity
             key={option}
             style={[styles.listItem, selectedOption === option && styles.selectedOption]}
@@ -149,8 +150,8 @@ const CashInScreen = () => {
       {loading ? (
         <ActivityIndicator size="large" color="#00695C" />
       ) : (
-        <TouchableOpacity style={styles.cashInButton} onPress={handleCashIn}>
-          <Text style={styles.cashInButtonText}>Cash In</Text>
+        <TouchableOpacity style={styles.cashOutButton} onPress={handleCashOut}>
+          <Text style={styles.cashOutButtonText}>Cash Out</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -207,17 +208,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     padding: 8,
   },
-  cashInButton: {
-    backgroundColor: '#00695C',
+  cashOutButton: {
+    backgroundColor: '#d32f2f',
     paddingVertical: 16,
     borderRadius: 8,
     alignItems: 'center',
   },
-  cashInButtonText: {
+  cashOutButtonText: {
     fontSize: 18,
     color: '#fff',
     fontWeight: 'bold',
   },
 });
 
-export default CashInScreen;
+export default CashOutScreen;

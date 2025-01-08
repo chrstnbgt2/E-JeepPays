@@ -20,12 +20,13 @@ const HomeScreen = () => {
   const [fareRate, setFareRate] = useState('0.00');
   const [walletBalance, setWalletBalance] = useState('0.00');
   const [accType, setAccType] = useState('Regular');
-  const [latestTrip, setLatestTrip] = useState(null); // State for latest trip
-  const [latestTransaction, setLatestTransaction] = useState(null); // State for latest transaction
+  const [latestTrip, setLatestTrip] = useState(null);  
+  const [transactions, setTransactions] = useState([]); 
+  const [totalDistance, setTotalDistance] = useState(0);
 
   useEffect(() => {
     let userRef, fareRef, tripsRef, transactionsRef;
-
+  
     const fetchData = async () => {
       try {
         const currentUser = auth().currentUser;
@@ -33,9 +34,9 @@ const HomeScreen = () => {
           console.warn('No user is currently logged in.');
           return;
         }
-
+  
         const uid = currentUser.uid;
-
+  
         // Real-time listener for user details
         userRef = database().ref(`users/accounts/${uid}`);
         userRef.on('value', (userSnapshot) => {
@@ -45,7 +46,7 @@ const HomeScreen = () => {
             setWalletBalance(userData.wallet_balance ? userData.wallet_balance.toFixed(2) : '0.00');
             const userAccountType = userData.acc_type || 'Regular';
             setAccType(userAccountType);
-
+  
             // Real-time listener for fare rate
             fareRef = database().ref(`fares/${userAccountType.toLowerCase()}/firstKm`);
             fareRef.on('value', (fareSnapshot) => {
@@ -59,7 +60,7 @@ const HomeScreen = () => {
             console.warn('No user data found.');
           }
         });
-
+  
         // Listener for trips
         tripsRef = database().ref(`trips/${uid}`);
         tripsRef.on('value', (snapshot) => {
@@ -69,7 +70,7 @@ const HomeScreen = () => {
               id: key,
               ...tripData[key],
             }));
-
+  
             // Get the latest completed trip by timestamp
             const latestCompletedTrip = tripList
               .filter((trip) => trip.status === 'completed')
@@ -79,8 +80,8 @@ const HomeScreen = () => {
             setLatestTrip(null);
           }
         });
-
-        // Listener for transactions (cash-ins)
+  
+        // Listener for transactions
         transactionsRef = database().ref(`users/accounts/${uid}/transactions`);
         transactionsRef.on('value', (snapshot) => {
           if (snapshot.exists()) {
@@ -89,21 +90,31 @@ const HomeScreen = () => {
               id: key,
               ...transactionData[key],
             }));
-
-            // Get the latest transaction by timestamp
-            const latestCashIn = transactionList.sort((a, b) => b.createdAt - a.createdAt)[0]; // Sort descending by createdAt and get the first
-            setLatestTransaction(latestCashIn || null);
+  
+            // Get recent transactions (last 2)
+            const recentTransactions = transactionList
+              .sort((a, b) => b.createdAt - a.createdAt)
+              .slice(0, 2);
+  
+            setTransactions(recentTransactions);
+  
+            // Sum all distances where `type` is `trip`
+            const tripTransactions = transactionList.filter((transaction) => transaction.type === 'trip');
+            const totalDistanceSum = tripTransactions.reduce((sum, trip) => sum + (trip.distance || 0), 0);
+  
+            setTotalDistance(totalDistanceSum.toFixed(2)); // Update total distance
           } else {
-            setLatestTransaction(null);
+            setTransactions([]);
+            setTotalDistance(0); // Reset total distance if no transactions
           }
         });
       } catch (error) {
         console.error('Error fetching data:', error);
       }
     };
-
+  
     fetchData();
-
+  
     return () => {
       if (userRef) userRef.off('value');
       if (fareRef) fareRef.off('value');
@@ -111,7 +122,7 @@ const HomeScreen = () => {
       if (transactionsRef) transactionsRef.off('value');
     };
   }, []);
-
+  
   const formatDate = (timestamp) => {
     if (!timestamp) return 'N/A';
     const date = new Date(timestamp);
@@ -175,9 +186,9 @@ const HomeScreen = () => {
             style={styles.card}
             imageStyle={styles.cardImageBackground}
           >
-            <MaterialCommunityIcons name="road-variant" size={40} color="#FFFFFF" />
-            <Text style={styles.cardValue}>{latestTrip?.distance?.toFixed(2) || '0.00'} kms</Text>
-            <Text style={styles.cardLabel}>Last Trip Distance</Text>
+             <MaterialCommunityIcons name="road-variant" size={40} color="#FFFFFF" />
+            <Text style={styles.cardValue}>{totalDistance} kms</Text>
+            <Text style={styles.cardLabel}>Total Distance Travelled</Text>
           </ImageBackground>
         </View>
 
@@ -190,32 +201,52 @@ const HomeScreen = () => {
         </View>
 
         <View style={styles.transactionList}>
-          {latestTransaction ? (
-            <View style={styles.transactionItem}>
-              <Text style={styles.transactionText}>
-                Last Cash-In: ₱{(latestTransaction.amount || 0).toFixed(2)}
-              </Text>
-              <Text style={styles.transactionDate}>
-                {formatDate(latestTransaction.createdAt)}
-              </Text>
-            </View>
+  {transactions && transactions.length > 0 ? (
+    transactions.map((transaction, index) => (
+      <View key={transaction.id || index} style={styles.transactionCard}>
+        <View style={styles.transactionRow}>
+          {/* Render different icons based on transaction type */}
+          {transaction.type === 'trip' ? (
+            <MaterialCommunityIcons
+              name="map-marker-path"
+              size={32}
+              color="#466B66"
+              style={styles.transactionIcon}
+            />
+          ) : transaction.type === 'cash_in' ? (
+            <Ionicons
+              name="cash-outline"
+              size={32}
+              color="#8FCB81"
+              style={styles.transactionIcon}
+            />
           ) : (
-            <Text style={styles.noTransactionsText}>No cash-in transactions available.</Text>
+            <Ionicons
+              name="help-circle-outline"
+              size={32}
+              color="#888"
+              style={styles.transactionIcon}
+            />
           )}
-
-          <Text style={styles.sectionTitle}>Last Completed Trip</Text>
-          {latestTrip ? (
-            <View style={styles.transactionItem}>
-              <Text style={styles.transactionText}>
-                Last Trip: ₱{(latestTrip.payment || 0).toFixed(2)} for{' '}
-                {(latestTrip.distance || 0).toFixed(2)} km
-              </Text>
-              <Text style={styles.transactionDate}>{formatDate(latestTrip.timestamp)}</Text>
-            </View>
-          ) : (
-            <Text style={styles.noTransactionsText}>No completed trips yet.</Text>
-          )}
+          <View style={styles.transactionDetails}>
+            <Text style={styles.transactionText}>
+              {transaction.type === 'trip'
+                ? 'Trip Payment:'
+                : transaction.type === 'cash_in'
+                ? 'Cash-In:'
+                : 'Other Transaction:'}{' '}
+              <Text style={styles.transactionAmount}>₱{(transaction.amount || 0).toFixed(2)}</Text>
+            </Text>
+            <Text style={styles.transactionDate}>{formatDate(transaction.createdAt)}</Text>
+          </View>
         </View>
+      </View>
+    ))
+  ) : (
+    <Text style={styles.noTransactionsText}>No recent transactions available.</Text>
+  )}
+</View>
+
 
         
       </ScrollView>
@@ -341,11 +372,55 @@ const styles = StyleSheet.create({
     height: 50,
     marginBottom: 10,
     elevation: 2,
-  }, transactionDate: {
+  }, 
+  transactionCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  transactionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  transactionIcon: {
+    marginRight: 12,
+  },
+  transactionDetails: {
+    flex: 1,
+  },
+  transactionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#466B66',
+  },
+  transactionAmount: {
+    fontWeight: 'bold',
+    color: '#8FCB81',
+  },
+  transactionDate: {
     fontSize: 12,
     color: '#888',
     marginTop: 4,
   },
+  tripDistance: {
+    fontWeight: 'bold',
+    color: '#466B66',
+  },
+  noTransactionsText: {
+    textAlign: 'center',
+    fontSize: 14,
+    color: '#888',
+    marginVertical: 10,
+  },
+  
 });
 
 export default HomeScreen;

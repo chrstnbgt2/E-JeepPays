@@ -19,9 +19,9 @@ const HistoryScreen = () => {
         console.warn('No user is logged in.');
         return;
       }
-    
+
       const uid = currentUser.uid;
-    
+
       // Real-time listener for transactions
       transactionsRef = database().ref(`users/accounts/${uid}/transactions`);
       transactionsRef.on('value', (snapshot) => {
@@ -31,14 +31,14 @@ const HistoryScreen = () => {
             id: key,
             ...transactionData[key],
           }));
-    
+
           // Sort transactions by `createdAt` in descending order
           const sortedTransactions = transactionList.sort((a, b) => {
             const dateA = new Date(a.createdAt).getTime();
             const dateB = new Date(b.createdAt).getTime();
             return dateB - dateA; // Descending order (latest first)
           });
-    
+
           setTransactions(sortedTransactions); // Set sorted list
         } else {
           setTransactions([]);
@@ -46,7 +46,6 @@ const HistoryScreen = () => {
         setLoading(false);
       });
     };
-    
 
     fetchTransactions();
 
@@ -71,38 +70,72 @@ const HistoryScreen = () => {
   const renderTransactionItem = ({ item }) => {
     const amount = parseFloat(item.amount) || 0; // Ensure amount is a number
     const distance = parseFloat(item.distance) || 0; // Ensure distance is a number
-  
+
+    // Icon and Title for each transaction type
+    let iconName = 'wallet-outline';
+    let transactionTitle = 'Cash In';
+    let color = '#466B66'; // Default color for text
+
+    if (item.type === 'trip') {
+      iconName = 'car-outline';
+      transactionTitle = 'Trip Payment';
+    } else if (item.type === 'cash_out') {
+      iconName = 'arrow-down-outline'; // Arrow down for cash out
+      transactionTitle = 'Cash Out';
+      color = '#FF6B6B'; // Red for cash out
+    } else if (item.type === 'transferred') {
+      iconName = 'swap-horizontal-outline'; // Icon for transferred
+      transactionTitle = 'Transferred';
+      color = '#FFC107'; // Yellow for transferred
+    } else if (item.type === 'received') {
+      iconName = 'arrow-down-circle-outline'; // Icon for received
+      transactionTitle = 'Received';
+      color = '#74A059'; // Green for received
+    }
+
     return (
       <View style={styles.transactionCard}>
         <View style={styles.transactionHeader}>
           <Ionicons
-            name={item.type === 'trip' ? 'car-outline' : 'wallet-outline'}
+            name={iconName}
             size={30}
-            color="#466B66"
+            color={color} // Color based on transaction type
             style={styles.transactionIcon}
           />
           <View style={styles.transactionInfo}>
-            <Text style={styles.transactionTitle}>
-              {item.type === 'trip' ? 'Trip Payment' : 'Cash In'}
-            </Text>
+            <Text style={styles.transactionTitle}>{transactionTitle}</Text>
             <Text style={styles.transactionDate}>{formatDate(item.createdAt)}</Text>
           </View>
         </View>
         <View style={styles.transactionDetails}>
-          <Text style={styles.transactionAmount}>
-            ₱{amount.toFixed(2)}
+          <Text
+            style={[
+              styles.transactionAmount,
+              { color: color }, // Apply same color to the amount text
+            ]}
+          >
+            {item.type === 'cash_out' || item.type === 'transferred'
+              ? `- ₱${amount.toFixed(2)}`
+              : `₱${amount.toFixed(2)}`}
           </Text>
           {item.type === 'trip' && (
-            <Text style={styles.transactionDistance}>
-              Distance: {distance.toFixed(2)} km
-            </Text>
+            <Text style={styles.transactionDistance}>Distance: {distance.toFixed(2)} km</Text>
+          )}
+          {item.type === 'transferred' && item.receiver && (
+            <Text style={styles.transactionDetailsText}>To: {item.receiver}</Text>
+          )}
+          {item.type === 'received' && item.sender && (
+            <Text style={styles.transactionDetailsText}>From: {item.sender}</Text>
           )}
         </View>
+        {/* Display Conductor/Transaction creator name if available */}
+        {item.conductorName && (
+          <Text style={styles.transactionByText}>Transacted by: {item.conductorName}</Text>
+        )}
       </View>
     );
   };
-  
-  
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -208,9 +241,12 @@ const styles = StyleSheet.create({
   transactionAmount: {
     fontSize: 22,
     fontWeight: 'bold',
-    color: '#8FCB81',
   },
   transactionDistance: {
+    fontSize: 14,
+    color: '#777',
+  },
+  transactionDetailsText: {
     fontSize: 14,
     color: '#777',
   },
@@ -219,6 +255,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#999',
     marginTop: 20,
+  },
+  transactionByText: {
+    fontSize: 14,
+    color: '#555',
+    marginTop: 10,
+    fontStyle: 'italic',
   },
 });
 
