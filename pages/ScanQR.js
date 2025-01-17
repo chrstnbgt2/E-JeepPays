@@ -268,7 +268,7 @@ const QRCodeScannerScreen = () => {
       }
   
       const conductorData = conductorSnapshot.val();
-      const conductorName = `${conductorData.firstName || ''} ${conductorData.lastName || ''}`.trim(); // Conductor's full name
+      const conductorName = `${conductorData.firstName || ''} ${conductorData.lastName || ''}`.trim();
       const driverUid = conductorData.creatorUid;
       if (!driverUid) {
         Alert.alert('Error', 'No linked driver found for this conductor.');
@@ -300,7 +300,6 @@ const QRCodeScannerScreen = () => {
       const maxCapacity = jeepneyData.capacity || 25;
       let currentCapacity = jeepneyData.currentCapacity ?? maxCapacity;
   
-      // Check if the QR code is temporary
       const tempRef = database().ref(`/temporary`);
       const tempSnapshot = await tempRef.once('value');
       tempSnapshot.forEach((child) => {
@@ -336,7 +335,7 @@ const QRCodeScannerScreen = () => {
       }
   
       const fareData = fareSnapshot.val();
-      const baseFareDistanceMeters = 4000; // Base fare applies up to 4 km
+      const baseFareDistanceMeters = 4000;
       const baseFare = fareData.firstKm;
       const additionalRatePerMeter = fareData.succeedingKm / 1000;
   
@@ -372,6 +371,21 @@ const QRCodeScannerScreen = () => {
             if (userData.wallet_balance >= payment) {
               await userRef.update({ wallet_balance: userData.wallet_balance - payment });
   
+              await conductorRef.update({
+                wallet_balance: (conductorData.wallet_balance || 0) + payment,
+              });
+  
+              const scannerTransactionsRef = database().ref(`/users/accounts/${conductorUid}/transactions`);
+              await scannerTransactionsRef.push({
+                type: 'trip',
+                description: `Received payment from passenger`,
+                passengerUid: creatorUid,
+                passengerName: `${userData.firstName || ''} ${userData.lastName || ''}`.trim(),
+                amount: payment,
+                distance: parseFloat((distanceMeters / 1000).toFixed(2)),
+                createdAt: new Date().toISOString(),
+              });
+  
               await tripListRef.update({
                 stop_loc: { latitude, longitude },
                 distance: parseFloat((distanceMeters / 1000).toFixed(2)),
@@ -379,30 +393,28 @@ const QRCodeScannerScreen = () => {
                 status: 'completed',
               });
   
-              currentCapacity = Math.min(maxCapacity, currentCapacity + 1); // Increment capacity back
+              currentCapacity = Math.min(maxCapacity, currentCapacity + 1);
               await jeepneyRef.update({ currentCapacity });
   
               const transactionsRef = database().ref(`/users/accounts/${creatorUid}/transactions`);
               await transactionsRef.push({
                 type: 'trip',
-                description: `Trip completed`,
-                conductorUid: conductorUid, // Add conductor UID
-                conductorName: conductorName, // Add conductor name
+                description: `Trip payment to conductor`,
+                conductorUid: conductorUid,
+                conductorName: conductorName,
                 amount: payment,
                 distance: parseFloat((distanceMeters / 1000).toFixed(2)),
-                status: 'completed',
                 createdAt: new Date().toISOString(),
               });
   
-              // === Add totalIncome and totalPassengers per day ===
-              const today = new Date().toISOString().split('T')[0]; // Get current date (YYYY-MM-DD)
+              const today = new Date().toISOString().split('T')[0];
               const incomeRef = database().ref(`/jeepneys/${jeepneyId}/dailyStats/${today}`);
               const incomeSnapshot = await incomeRef.once('value');
   
               const dailyData = incomeSnapshot.val() || { totalIncome: 0, totalPassengers: 0 };
               const updatedDailyData = {
-                totalIncome: (dailyData.totalIncome || 0) + payment, // Add fare to totalIncome
-                totalPassengers: (dailyData.totalPassengers || 0) + 1, // Increment totalPassengers by 1
+                totalIncome: (dailyData.totalIncome || 0) + payment,
+                totalPassengers: (dailyData.totalPassengers || 0) + 1,
               };
   
               await incomeRef.update(updatedDailyData);

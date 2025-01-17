@@ -68,13 +68,16 @@ const JeepDetailScreen = ({ route, navigation }) => {
 
       {/* Content */}
       <View style={styles.content}>
-        <Text style={styles.sectionTitle}>Jeepney Information</Text>
+        <Text style={styles.sectionTitle}>Jeep Details</Text>
 
+        {/* Jeep Image */}
         <View style={styles.imageContainer}>
-          <Image source={require('../assets/images/jeep.png')} style={styles.jeepImage} />
+          <Image source={require('../assets/images/bus.png')} style={styles.jeepImage} />
         </View>
 
+        {/* Details Card */}
         <View style={styles.card}>
+          <View style={styles.cardHeader} />
           <View style={styles.cardContent}>
             {loading ? (
               <ActivityIndicator size="large" color="#0000ff" />
@@ -96,8 +99,6 @@ const JeepDetailScreen = ({ route, navigation }) => {
                   <Text style={styles.bold}>Route:</Text>
                   <Text style={styles.detailValue}>{fullJeepDetails.route || 'N/A'}</Text>
                 </View>
-              
-          
               </>
             ) : (
               <Text style={styles.noDetailsText}>No jeepney details available.</Text>
@@ -115,21 +116,97 @@ const JeepDetailScreen = ({ route, navigation }) => {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF' },
-  header: { padding: 20, flexDirection: 'row', alignItems: 'center' },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', marginLeft: 10 },
-  content: { padding: 20 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
-  imageContainer: { alignItems: 'center', marginBottom: 20 },
-  jeepImage: { width: 200, height: 100, resizeMode: 'contain' },
-  card: { backgroundColor: '#F5F5F5', borderRadius: 10, padding: 15 },
-  cardContent: { paddingTop: 10 },
-  detailItem: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  bold: { fontWeight: 'bold' },
-  detailValue: { color: '#555' },
-  noDetailsText: { textAlign: 'center', color: '#888' },
-  button: { backgroundColor: '#00695C', padding: 12, borderRadius: 8, alignItems: 'center', marginTop: 20 },
-  buttonText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+  container: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F4F4F4',
+    paddingVertical: 15,
+    paddingHorizontal: 15,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  backIcon: {
+    marginRight: 10,
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#000',
+  },
+  content: {
+    flex: 1,
+    padding: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    color: '#000',
+  },
+  imageContainer: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  jeepImage: {
+    width: 250,
+    height: 200,
+    resizeMode: 'contain',
+  },
+  card: {
+    backgroundColor: '#F4F4F4',
+    borderRadius: 15,
+    elevation: 5,
+    overflow: 'hidden',
+  },
+  cardHeader: {
+    backgroundColor: '#CCD9B8',
+    height: 50,
+  },
+  cardContent: {
+    padding: 20,
+  },
+  detailItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#CCC',
+    paddingVertical: 15,
+  },
+  bold: {
+    fontWeight: 'bold',
+    fontSize: 18,
+    color: '#000',
+    flex: 1,
+  },
+  detailValue: {
+    fontSize: 18,
+    color: '#000',
+    textAlign: 'center',
+    flex: 1,
+  },
+  noDetailsText: {
+    fontSize: 16,
+    color: '#888',
+    textAlign: 'center',
+    marginTop: 10,
+  },
+  button: {
+    backgroundColor: '#00695C',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 20,
+  },
+  buttonText: {
+    color: '#FFF',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
 });
 
 export default JeepDetailScreen;

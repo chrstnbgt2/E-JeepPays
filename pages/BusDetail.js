@@ -25,13 +25,11 @@ const CheckSeatScreen = () => {
 
         const uid = currentUser.uid;
 
-        // Fetch jeepney details where the driver field matches the current UID
-        const jeepneysRef = database().ref('jeepneys');
+         const jeepneysRef = database().ref('jeepneys');
         const snapshot = await jeepneysRef.orderByChild('driver').equalTo(uid).once('value');
 
         if (snapshot.exists()) {
-          // Extract the first jeepney (in case there are multiple, but there should ideally be only one)
-          const jeepData = Object.values(snapshot.val())[0];
+           const jeepData = Object.values(snapshot.val())[0];
           setJeepDetails(jeepData);
         } else {
           console.warn('No jeepney assigned to this driver');

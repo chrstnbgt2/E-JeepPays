@@ -3,12 +3,11 @@ import {
   StyleSheet,
   View,
   Text,
+  TextInput,
   TouchableOpacity,
   Modal,
   FlatList,
   Alert,
-  Platform,
-  Linking,
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -17,26 +16,18 @@ import auth from '@react-native-firebase/auth';
 import database from '@react-native-firebase/database';
 import ViewShot from 'react-native-view-shot';
 import RNFS from 'react-native-fs';
- 
+
 const DisplayAllQR_Conductor = () => {
   const navigation = useNavigation();
   const [modalVisible, setModalVisible] = useState(false);
   const [passengerType, setPassengerType] = useState(null);
   const [qrList, setQrList] = useState([]);
+  const [filteredQrList, setFilteredQrList] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const viewShotRefs = useRef({});
   const [name, setName] = useState('');
   const [maskedPhone, setMaskedPhone] = useState('');
 
-  const triggerMediaScanner = async (filePath) => {
-    try {
-      await RNFS.scanFile(filePath);
-      console.log('MediaScanner updated for file:', filePath);
-    } catch (err) {
-      console.error('MediaScanner error:', err);
-    }
-  };
-
- 
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -90,6 +81,7 @@ const DisplayAllQR_Conductor = () => {
           }
         });
         setQrList(qrCodes);
+        setFilteredQrList(qrCodes);
       } catch (error) {
         console.error('Error fetching QR codes:', error);
       }
@@ -99,8 +91,23 @@ const DisplayAllQR_Conductor = () => {
     fetchUserQrCodes();
   }, []);
 
+  const handleSearch = (query) => {
+    if (/[^0-9]/.test(query)) {
+      Alert.alert('Invalid Input', 'Please enter numbers only.');
+      return;
+    }
+    setSearchQuery(query);
+    if (query === '') {
+      setFilteredQrList(qrList);
+    } else {
+      const filteredList = qrList.filter((item) =>
+        item.username.includes(query) || item.type.includes(query)
+      );
+      setFilteredQrList(filteredList);
+    }
+  };
+
   const saveQrCode = async (qrItem) => {
-   
     try {
       const uri = await viewShotRefs.current[qrItem.key].capture();
       const sanitizedUsername = qrItem.username.replace(/[^a-zA-Z0-9]/g, '_');
@@ -116,84 +123,12 @@ const DisplayAllQR_Conductor = () => {
       await RNFS.writeFile(filePath, base64, 'base64');
       console.log('File successfully written to:', filePath);
 
-       await triggerMediaScanner(filePath);
       Alert.alert('Success', `QR code saved to: ${filePath}`);
     } catch (error) {
       console.error('Error saving QR code:', error);
       Alert.alert('Error', 'Failed to save QR code. Please try again.');
     }
   };
-
-  const handleGenerate = async () => {
-    if (!passengerType) {
-      Alert.alert('Error', 'Please select a passenger type.');
-      return;
-    }
-
-    try {
-      const currentUser = auth().currentUser;
-      if (!currentUser) {
-        Alert.alert('Error', 'You must be logged in to generate a QR code.');
-        return;
-      }
-
-      const userLoggedUid = currentUser.uid;
-
-      const dailyCountRef = database().ref(`usernameCount/${userLoggedUid}`);
-      const currentDate = new Date().toISOString().split('T')[0];
-
-      let newUsernameCount = 1;
-
-      const snapshot = await dailyCountRef.once('value');
-      const data = snapshot.val();
-
-      if (data && data.date === currentDate) {
-        newUsernameCount = data.count + 1;
-      }
-
-      await dailyCountRef.set({
-        date: currentDate,
-        count: newUsernameCount,
-      });
-
-      const tempRef = database().ref(`temporary/${userLoggedUid}`).push();
-      const generatedUid = tempRef.key;
-
-      const incrementingUsername = `${newUsernameCount}`;
-
-      const tempData = {
-        createdAt: new Date().toISOString(),
-        status: 'enabled',
-        type: passengerType,
-        username: incrementingUsername,
-      };
-
-      await tempRef.set(tempData);
-
-      console.log(`Temporary QR Code generated: ${generatedUid}`);
-      console.log(`Generated Username: ${incrementingUsername}`);
-
-      setQrList((prevList) => [
-        ...prevList,
-        {
-          key: generatedUid,
-          ...tempData,
-        },
-      ]);
-
-      setModalVisible(false);
-      navigation.navigate('GenerateQR', {
-        passengerType,
-        userId: userLoggedUid,
-        qrValue: generatedUid,
-      });
-    } catch (error) {
-      console.error('Error generating temporary QR:', error);
-      Alert.alert('Error', 'Failed to generate QR code. Please try again.');
-    }
-  };
-
- 
 
   return (
     <View style={styles.container}>
@@ -207,79 +142,44 @@ const DisplayAllQR_Conductor = () => {
         <Text style={styles.headerTitle}>QR Code Share</Text>
       </View>
 
+      <TextInput
+        style={styles.searchBar}
+        placeholder="Search by username or type"
+        placeholderTextColor="#888"
+        value={searchQuery}
+        onChangeText={handleSearch}
+        keyboardType="numeric"
+      />
+
       <FlatList
-  data={qrList}
-  keyExtractor={(item) => item.key}
-  renderItem={({ item }) => (
-    <ViewShot ref={(ref) => (viewShotRefs.current[item.key] = ref)} options={{ format: 'png', quality: 1 }}>
-      <View style={styles.qrCard}>
-        <Text style={styles.qrUsername}>Username: {item.username}</Text>
-        <Text style={styles.qrType}>Type: {item.type}</Text>
-        <QRCode
-          value={item.key || 'N/A'}
-          size={200}
-          logo={require('../assets/images/qrlogo.png')}
-          logoSize={40}
-          logoBackgroundColor="transparent"
-        />
-        <TouchableOpacity style={styles.saveButton} onPress={() => saveQrCode(item)}>
-          <Text style={styles.buttonText}>Save to Gallery</Text>
-        </TouchableOpacity>
-      </View>
-    </ViewShot>
-  )}
-  ListEmptyComponent={<Text style={styles.emptyText}>No QR codes found.</Text>}
-/>
+        data={filteredQrList}
+        keyExtractor={(item) => item.key}
+        renderItem={({ item }) => (
+          <ViewShot ref={(ref) => (viewShotRefs.current[item.key] = ref)} options={{ format: 'png', quality: 1 }}>
+            <View style={styles.qrCard}>
+              <Text style={styles.qrUsername}>Username: {item.username}</Text>
+              <Text style={styles.qrType}>Type: {item.type}</Text>
+              <QRCode
+                value={item.key || 'N/A'}
+                size={200}
+                logo={require('../assets/images/qrlogo.png')}
+                logoSize={40}
+                logoBackgroundColor="transparent"
+              />
+              <TouchableOpacity style={styles.saveButton} onPress={() => saveQrCode(item)}>
+                <Text style={styles.buttonText}>Save to Gallery</Text>
+              </TouchableOpacity>
+            </View>
+          </ViewShot>
+        )}
+        ListEmptyComponent={<Text style={styles.emptyText}>No QR codes found.</Text>}
+      />
 
-
-      <View style={styles.actionButtons}>
-        <TouchableOpacity
-          style={styles.createButton}
-          onPress={() => setModalVisible(true)}
-        >
-          <Text style={styles.buttonText}>Create QR Code</Text>
-        </TouchableOpacity>
-      </View>
-
-      <Modal
-        visible={modalVisible}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Type of Passenger</Text>
-            <TouchableOpacity
-              style={
-                passengerType === 'Regular'
-                  ? styles.selectedOption
-                  : styles.option
-              }
-              onPress={() => setPassengerType('Regular')}
-            >
-              <Text style={styles.optionText}>REGULAR</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={
-                passengerType === 'Discount'
-                  ? styles.selectedOption
-                  : styles.option
-              }
-              onPress={() => setPassengerType('Discount')}
-            >
-              <Text style={styles.optionText}>DISCOUNTED</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.generateButton} onPress={handleGenerate}>
-              <Text style={styles.generateButtonText}>Generate</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+     
+     
     </View>
   );
 };
-
 
 const styles = StyleSheet.create({
   container: {
@@ -287,13 +187,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   header: {
-    backgroundColor: '#F4F4F4',
-    paddingVertical: 15,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 10,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    padding: 15,
+    backgroundColor: '#F4F4F4',
   },
   backButton: {
     marginRight: 10,
@@ -301,82 +198,40 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
-    color: '#000',
-    flex: 1,
-    textAlign: 'center',
+  },
+  searchBar: {
+    margin: 10,
+    padding: 10,
+    borderRadius: 10,
+    borderColor: '#ccc',
+    borderWidth: 1,
+    backgroundColor: '#F9F9F9',
+    placeholderTextColor: '#888',
   },
   qrCard: {
+    padding: 20,
     backgroundColor: '#CCD9B8',
-    margin: 20,
-    padding: 15,
     borderRadius: 15,
+    margin: 10,
     alignItems: 'center',
   },
   qrUsername: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
-    color: '#000',
   },
   qrType: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#555',
   },
   saveButton: {
-    backgroundColor: '#4E764E',
-    borderRadius: 10,
-    paddingVertical: 10,
     marginTop: 10,
-    alignItems: 'center',
-    width: '100%',
+    backgroundColor: '#4E764E',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 10,
   },
   buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    width: '80%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 15,
-    padding: 20,
-    alignItems: 'center',
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 20,
-  },
-  option: {
-    width: '100%',
-    padding: 15,
-    borderRadius: 10,
-    backgroundColor: '#F4F4F4',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  selectedOption: {
-    width: '100%',
-    padding: 15,
-    borderRadius: 10,
-    backgroundColor: '#D6E6CF',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  generateButton: {
-    backgroundColor: '#2B393B',
-    paddingVertical: 12,
-    paddingHorizontal: 40,
-    borderRadius: 10,
-  },
-  generateButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: '#FFF',
     fontWeight: 'bold',
   },
   emptyText: {
@@ -384,6 +239,57 @@ const styles = StyleSheet.create({
     marginTop: 20,
     fontSize: 16,
     color: '#888',
+  },
+  createButton: {
+    margin: 20,
+    backgroundColor: '#2B393B',
+    padding: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  modalContent: {
+    width: '80%',
+    backgroundColor: '#FFF',
+    borderRadius: 15,
+    padding: 20,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 20,
+  },
+  option: {
+    width: '100%',
+    padding: 10,
+    backgroundColor: '#F4F4F4',
+    borderRadius: 10,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  selectedOption: {
+    width: '100%',
+    padding: 10,
+    backgroundColor: '#D6E6CF',
+    borderRadius: 10,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  generateButton: {
+    marginTop: 20,
+    backgroundColor: '#2B393B',
+    padding: 10,
+    borderRadius: 10,
+  },
+  generateButtonText: {
+    color: '#FFF',
+    fontWeight: 'bold',
   },
 });
 

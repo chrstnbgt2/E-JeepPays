@@ -89,7 +89,7 @@ const DriverNavigator = () => (
       tabBarStyle: styles.tabBar,
       tabBarIcon: ({ color, size }) => {
         let iconName;
-        if (route.name === 'DashboardDriver') iconName = 'home';
+        if (route.name === 'Home') iconName = 'home';
         if (route.name === 'Seat') iconName = 'car';
         if (route.name === 'Profile') iconName = 'person';
         if (route.name === 'History') iconName = 'time';
@@ -99,7 +99,7 @@ const DriverNavigator = () => (
       tabBarInactiveTintColor: '#FFFFFF',
     })}
   >
-    <DriverTabs.Screen name="DashboardDriver" component={HomeScreenDriver} />
+    <DriverTabs.Screen name="Home" component={HomeScreenDriver} />
     <DriverTabs.Screen name="Seat" component={BusDetail} />
     <DriverTabs.Screen
       name="MiddleTab"
@@ -128,7 +128,7 @@ const ConductorNavigator = () => (
       tabBarStyle: styles.tabBar,
       tabBarIcon: ({ color, size }) => {
         let iconName;
-        if (route.name === 'DashboardConductor') iconName = 'home';
+        if (route.name === 'Home') iconName = 'home';
         if (route.name === 'Tracker') iconName = 'location';
         if (route.name === 'ScanQR') iconName = 'scan-circle-outline';
         if (route.name === 'History') iconName = 'time';
@@ -139,7 +139,7 @@ const ConductorNavigator = () => (
       tabBarInactiveTintColor: '#FFFFFF',
     })}
   >
-    <ConductorTabs.Screen name="DashboardConductor" component={HomeScreenConductor} />
+    <ConductorTabs.Screen name="Home" component={HomeScreenConductor} />
     <ConductorTabs.Screen name="Tracker" component={Tracker} />
     <ConductorTabs.Screen name="ScanQR" component={QRCodeScannerScreen} />
     <ConductorTabs.Screen name="History" component={History} />
