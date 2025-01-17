@@ -17,9 +17,7 @@ import auth from '@react-native-firebase/auth';
 import database from '@react-native-firebase/database';
 import ViewShot from 'react-native-view-shot';
 import RNFS from 'react-native-fs';
-import CameraRoll from '@react-native-camera-roll/camera-roll';
-import { check, request, PERMISSIONS, RESULTS } from 'react-native-permissions';
-
+ 
 const DisplayAllQR_Conductor = () => {
   const navigation = useNavigation();
   const [modalVisible, setModalVisible] = useState(false);
@@ -118,8 +116,7 @@ const DisplayAllQR_Conductor = () => {
       await RNFS.writeFile(filePath, base64, 'base64');
       console.log('File successfully written to:', filePath);
 
-      // Trigger Media Scanner
-      await triggerMediaScanner(filePath);
+       await triggerMediaScanner(filePath);
       Alert.alert('Success', `QR code saved to: ${filePath}`);
     } catch (error) {
       console.error('Error saving QR code:', error);

@@ -15,6 +15,16 @@ const MyQRScreen = () => {
   const [username, setUsername] = useState('');
   const [qrValue, setQrValue] = useState('');
 
+
+ const triggerMediaScanner = async (filePath) => {
+    try {
+      await RNFS.scanFile(filePath);
+      console.log('MediaScanner updated for file:', filePath);
+    } catch (err) {
+      console.error('MediaScanner error:', err);
+    }
+  };
+
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -52,18 +62,46 @@ const MyQRScreen = () => {
     fetchUserData();
   }, []);
   
-  const saveQrCode = async () => {
-    try {
-      const uri = await viewShotRef.current.capture();
-      const filePath = `${RNFS.DownloadDirectoryPath}/my-qr-code.png`;
-  
-      await RNFS.moveFile(uri, filePath);
-      Alert.alert('Success', `QR code saved to ${filePath}`);
-    } catch (error) {
-      console.error('Error saving QR code:', error);
+const saveQrCode = async () => {
+  try {
+     const uri = await viewShotRef.current.capture();
+    console.log('Captured URI:', uri);
+
+     const directoryPath = `${RNFS.ExternalStorageDirectoryPath}/Pictures/MyApp`;
+    const fileName = `QR_${Date.now()}.png`;
+    const filePath = `${directoryPath}/${fileName}`;
+
+    // Ensure the directory exists
+    if (!(await RNFS.exists(directoryPath))) {
+      console.log('Creating directory:', directoryPath);
+      await RNFS.mkdir(directoryPath);
+    }
+
+     const base64 = await RNFS.readFile(uri, 'base64');
+
+     await RNFS.writeFile(filePath, base64, 'base64');
+    console.log('File successfully written to:', filePath);
+
+     Alert.alert('Success', `QR code saved to: ${filePath}`);
+
+    // Trigger Media Scanner
+    await triggerMediaScanner(filePath);
+  } catch (error) {
+    console.error('Error saving QR code:', error);
+
+    // Handle permission errors
+    if (error.message.includes('EACCES')) {
+      Alert.alert(
+        'Permission Denied',
+        'Your app does not have access to write to storage. Please enable storage access in settings.'
+      );
+    } else {
+      // General error handling
       Alert.alert('Error', 'Failed to save QR code. Please try again.');
     }
-  };
+  }
+};
+
   
   const handleGenerate = async () => {
     try {
