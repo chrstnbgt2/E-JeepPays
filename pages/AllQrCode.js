@@ -6,9 +6,9 @@ import {
   TouchableOpacity,
   Modal,
   FlatList,
-  Alert,  
-  Platform, 
-  Linking
+  Alert,
+  Platform,
+  Linking,
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -29,42 +29,16 @@ const DisplayAllQR_Conductor = () => {
   const [name, setName] = useState('');
   const [maskedPhone, setMaskedPhone] = useState('');
 
-
-  const requestManageStoragePermission = async () => {
+  const triggerMediaScanner = async (filePath) => {
     try {
-      if (Platform.OS === 'android') {
-        if (Platform.Version >= 33) {
-          const result = await request(PERMISSIONS.ANDROID.READ_MEDIA_IMAGES);
-          if (result === RESULTS.GRANTED) {
-            console.log('READ_MEDIA_IMAGES permission granted');
-            return true;
-          } else {
-            Alert.alert('Permission Required', 'Please grant media storage permission in settings.', [
-              { text: 'OK', onPress: () => Linking.openSettings() },
-            ]);
-            return false;
-          }
-        } else if (Platform.Version >= 30) {
-          const result = await request(PERMISSIONS.ANDROID.MANAGE_EXTERNAL_STORAGE);
-          if (result === RESULTS.GRANTED) {
-            console.log('MANAGE_EXTERNAL_STORAGE permission granted');
-            return true;
-          } else {
-            Alert.alert('Permission Required', 'Please enable storage permission in settings.', [
-              { text: 'OK', onPress: () => Linking.openSettings() },
-            ]);
-            return false;
-          }
-        }
-      }
-      return true; // No permissions required for Android 10 or lower
-    } catch (error) {
-      console.error('Error requesting permission:', error);
-      return false;
+      await RNFS.scanFile(filePath);
+      console.log('MediaScanner updated for file:', filePath);
+    } catch (err) {
+      console.error('MediaScanner error:', err);
     }
   };
-  
 
+ 
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -128,57 +102,30 @@ const DisplayAllQR_Conductor = () => {
   }, []);
 
   const saveQrCode = async (qrItem) => {
-    console.log('saveQrCode function triggered!'); // Log to check if the function is called
-  
-    const hasPermission = await requestManageStoragePermission();
-    if (!hasPermission) {
-      console.log('Storage permission not granted!');
-      Alert.alert('Permission Denied', 'Storage permission is required to save the QR code.');
-      return;
-    }
-  
+   
     try {
-      console.log(`Attempting to capture view for QR item: ${qrItem.username}`); // Log QR item info
       const uri = await viewShotRefs.current[qrItem.key].capture();
-      console.log(`Capture successful. File URI: ${uri}`);
-  
       const sanitizedUsername = qrItem.username.replace(/[^a-zA-Z0-9]/g, '_');
       const fileName = `QR_${sanitizedUsername}.png`;
-      console.log(`Sanitized file name: ${fileName}`);
-  
-      if (Platform.OS === 'android' && Platform.Version >= 30) {
-        console.log('Saving using CameraRoll (Android 11+ path)...');
-        const base64Data = await RNFS.readFile(uri, 'base64');
-        const galleryPath = `${RNFS.CachesDirectoryPath}/${fileName}`;
-        await RNFS.writeFile(galleryPath, base64Data, 'base64');
-        console.log(`File written to cache path: ${galleryPath}`);
-  
-        const savedUri = await CameraRoll.save(galleryPath, {
-          type: 'photo',
-          album: 'MyQRs',
-        });
-  
-        console.log(`File saved to gallery: ${savedUri}`);
-        Alert.alert('Success', `QR code saved to gallery as ${fileName}`);
-      } else {
-        console.log('Saving to Downloads folder for Android 10 or lower...');
-        const folderPath = `${RNFS.DownloadDirectoryPath}/MyQRs`;
-        if (!(await RNFS.exists(folderPath))) {
-          await RNFS.mkdir(folderPath);
-          console.log(`Created folder path: ${folderPath}`);
-        }
-  
-        const filePath = `${folderPath}/${fileName}`;
-        await RNFS.moveFile(uri, filePath);
-        console.log(`File moved to Downloads: ${filePath}`);
-        Alert.alert('Success', `QR code saved to ${filePath}`);
+      const directoryPath = `${RNFS.ExternalStorageDirectoryPath}/Pictures/MyApp`;
+      const filePath = `${directoryPath}/${fileName}`;
+
+      if (!(await RNFS.exists(directoryPath))) {
+        await RNFS.mkdir(directoryPath);
       }
+
+      const base64 = await RNFS.readFile(uri, 'base64');
+      await RNFS.writeFile(filePath, base64, 'base64');
+      console.log('File successfully written to:', filePath);
+
+      // Trigger Media Scanner
+      await triggerMediaScanner(filePath);
+      Alert.alert('Success', `QR code saved to: ${filePath}`);
     } catch (error) {
       console.error('Error saving QR code:', error);
       Alert.alert('Error', 'Failed to save QR code. Please try again.');
     }
   };
-  
 
   const handleGenerate = async () => {
     if (!passengerType) {
@@ -249,36 +196,7 @@ const DisplayAllQR_Conductor = () => {
     }
   };
 
-  const renderQrItem = ({ item }) => (
-    <ViewShot
-    ref={(ref) => (viewShotRefs.current[item.key] = ref)}
-    options={{ format: 'png', quality: 1 }}
-  >
-    <View style={styles.qrCard}>
-       
-      <Text style={styles.qrUsername}>Username: {item.username}</Text>
-      <Text style={styles.qrType}>Type: {item.type}</Text>
-    
-        <QRCode
-          value={item.key || 'N/A'}
-          size={200}
-          logo={require('../assets/images/qrlogo.png')} // Path to your logo
-          logoSize={40}
-          logoBackgroundColor="transparent"
-          logoMargin={-10}
-          quietZone={10}
-        />
-     
-     <TouchableOpacity
-  style={styles.saveButton}
-  onPress={() => saveQrCode(item)}  
->
-  <Text style={styles.buttonText}>Save to Phone</Text>
-</TouchableOpacity>
-
-    </View>
-    </ViewShot>
-  );
+ 
 
   return (
     <View style={styles.container}>

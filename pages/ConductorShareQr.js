@@ -5,7 +5,7 @@ import {
   Text,
   TouchableOpacity,
   Modal,
-  Alert,
+  Alert,Platform,NativeModules 
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -14,7 +14,8 @@ import auth from '@react-native-firebase/auth';
 import database from '@react-native-firebase/database';
 import ViewShot from 'react-native-view-shot';
 import RNFS from 'react-native-fs';
-
+import Share from 'react-native-share';
+ 
 const MyQRScreenShareConductor = () => {
   const navigation = useNavigation();
   const [modalVisible, setModalVisible] = useState(false);
@@ -24,6 +25,17 @@ const MyQRScreenShareConductor = () => {
   const [maskedPhone, setMaskedPhone] = useState('');
   const [username, setUsername] = useState('');
   const [qrValue, setQrValue] = useState('');
+ 
+ 
+  const triggerMediaScanner = async (filePath) => {
+    try {
+      await RNFS.scanFile(filePath); // Pass the string file path directly
+      console.log('MediaScanner updated for file:', filePath);
+    } catch (err) {
+      console.error('MediaScanner error:', err);
+    }
+  };
+  
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -67,16 +79,42 @@ const MyQRScreenShareConductor = () => {
   const saveQrCode = async () => {
     try {
       const uri = await viewShotRef.current.capture();
-      const filePath = `${RNFS.DownloadDirectoryPath}/my-qr-code.png`;
-
-      await RNFS.moveFile(uri, filePath);
-      Alert.alert('Success', `QR code saved to ${filePath}`);
+      console.log('Captured URI:', uri);
+  
+      const directoryPath = `${RNFS.ExternalStorageDirectoryPath}/Pictures/MyApp`;
+      const fileName = `QR_${Date.now()}.png`;
+      const filePath = `${directoryPath}/${fileName}`;
+  
+      // Ensure the directory exists
+      if (!(await RNFS.exists(directoryPath))) {
+        console.log('Creating directory:', directoryPath);
+        await RNFS.mkdir(directoryPath);
+      }
+  
+      const base64 = await RNFS.readFile(uri, 'base64');
+      await RNFS.writeFile(filePath, base64, 'base64');
+  
+      console.log('File successfully written to:', filePath);
+      Alert.alert('Success', `QR code saved to: ${filePath}`);
+  
+      // Trigger Media Scanner
+      await triggerMediaScanner(filePath);
     } catch (error) {
       console.error('Error saving QR code:', error);
-      Alert.alert('Error', 'Failed to save QR code. Please try again.');
+  
+      if (error.message.includes('EACCES')) {
+        Alert.alert(
+          'Permission Denied',
+          'Your app does not have access to write to storage. Please enable storage access in settings.'
+        );
+      } else {
+        Alert.alert('Error', 'Failed to save QR code. Please try again.');
+      }
     }
   };
-
+  
+  
+  
   const handleGenerate = async () => {
     if (!passengerType) {
       Alert.alert('Error', 'Please select a passenger type.');

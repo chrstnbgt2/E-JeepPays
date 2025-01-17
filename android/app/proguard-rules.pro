@@ -15,3 +15,10 @@
 -keep class androidx.camera.** {*;}
 -keep class com.facebook.imagepipeline.** {*;}
 -keep class com.zoontek.rnpermissions.** { *; }
+
+
+# React Native Proguard Rules
+ 
+-dontwarn com.facebook.react.**
+-keep class com.facebook.hermes.** { *; }
+-dontwarn com.facebook.hermes.**

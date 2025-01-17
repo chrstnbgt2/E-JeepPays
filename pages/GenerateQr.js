@@ -1,17 +1,37 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Alert, PermissionsAndroid, Platform } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Text,
+  TouchableOpacity,
+  Alert,
+  Platform,
+} from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import database from '@react-native-firebase/database';
 import ViewShot from 'react-native-view-shot';
 import RNFS from 'react-native-fs';
+import Share from 'react-native-share';
 
 const GeneratedQRPage = ({ route, navigation }) => {
-  const { passengerType, userId } = route.params;  
+  const { passengerType, userId } = route.params;
   const [username, setUsername] = useState('');
   const [qrValue, setQrValue] = useState('');
   const viewShotRef = useRef();
 
+ 
+  const triggerMediaScanner = async (filePath) => {
+    try {
+      await RNFS.scanFile(filePath);
+      console.log('MediaScanner updated for file:', filePath);
+    } catch (err) {
+      console.error('MediaScanner error:', err);
+    }
+  };
+
+  
+ 
   useEffect(() => {
     const fetchTemporaryData = async () => {
       try {
@@ -20,29 +40,21 @@ const GeneratedQRPage = ({ route, navigation }) => {
           Alert.alert('Error', 'User ID is missing. Please try again.');
           return;
         }
-
-        // Reference the specific user path in the database
+    
         const tempRef = database().ref(`temporary/${userId}`);
         const snapshot = await tempRef.once('value');
-
+    
         if (snapshot.exists()) {
           const data = snapshot.val();
-
-          // Loop through the generated UIDs under this userId
-          for (const generatedUid in data) {
-            if (data[generatedUid]) {
-              const userEntry = data[generatedUid];
-              setUsername(userEntry.username);
-
-              // Store the generated UID as the exact QR code value
-              setQrValue(generatedUid); // Store the exact key, e.g., "ktNOZ9J0aiQDr2Kgota6hVoyh9H2"
-
-              console.log('Fetched data:', userEntry); // Log the fetched data
-              return; // Exit the function once the first match is found
-            }
+          const entries = Object.entries(data);
+          if (entries.length > 0) {
+            const [generatedUid, userEntry] = entries[0];
+            setUsername(userEntry.username);
+            setQrValue(generatedUid);
+            console.log('Fetched data:', userEntry);
+          } else {
+            Alert.alert('Error', 'No valid QR code data found.');
           }
-
-          Alert.alert('Error', 'No temporary data found for this user.');
         } else {
           Alert.alert('Error', 'No temporary data available for this user.');
         }
@@ -51,44 +63,46 @@ const GeneratedQRPage = ({ route, navigation }) => {
         Alert.alert('Error', 'Failed to retrieve temporary data. Please try again.');
       }
     };
+    
 
     fetchTemporaryData();
   }, [passengerType, userId]);
 
   const saveQrCode = async () => {
-    const hasPermission = await requestPermission();
-    if (!hasPermission) {
-      Alert.alert('Permission Denied', 'Storage permission is required to save the QR code.');
-      return;
-    }
-
     try {
-      const uri = await viewShotRef.current.capture(); // Capture the view
-      const filePath = `${RNFS.DownloadDirectoryPath}/generated-qr-code-${Date.now()}.png`;
+      const uri = await viewShotRef.current.capture();
+      console.log('Captured URI:', uri);
 
-      await RNFS.writeFile(filePath, uri, 'base64');
-      Alert.alert('Success', `QR code saved to ${filePath}`);
+      const directoryPath = `${RNFS.ExternalStorageDirectoryPath}/Pictures/MyApp`;
+      const fileName = `QR_${username || Date.now()}.png`;
+      const filePath = `${directoryPath}/${fileName}`;
+
+      // Ensure the directory exists
+      if (!(await RNFS.exists(directoryPath))) {
+        console.log('Creating directory:', directoryPath);
+        await RNFS.mkdir(directoryPath);
+      }
+
+      const base64 = await RNFS.readFile(uri, 'base64');
+      await RNFS.writeFile(filePath, base64, 'base64');
+
+      console.log('File successfully written to:', filePath);
+      Alert.alert('Success', `QR code saved to: ${filePath}`);
+
+      // Trigger Media Scanner
+      await triggerMediaScanner(filePath);
     } catch (error) {
       console.error('Error saving QR code:', error);
-      Alert.alert('Error', 'Failed to save QR code. Please try again.');
-    }
-  };
 
-  const requestPermission = async () => {
-    if (Platform.OS === 'android') {
-      try {
-        const granted = await PermissionsAndroid.request(PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE, {
-          title: 'Storage Permission Required',
-          message: 'This app needs storage permission to save the QR code.',
-          buttonPositive: 'OK',
-        });
-        return granted === PermissionsAndroid.RESULTS.GRANTED;
-      } catch (err) {
-        console.warn(err);
-        return false;
+      if (error.message.includes('EACCES')) {
+        Alert.alert(
+          'Permission Denied',
+          'Your app does not have access to write to storage. Please enable storage access in settings.'
+        );
+      } else {
+        Alert.alert('Error', 'Failed to save QR code. Please try again.');
       }
     }
-    return true;
   };
 
   return (
