@@ -29,6 +29,7 @@
       android:theme="@style/AppTheme"
       android:supportsRtl="true"
       android:requestLegacyExternalStorage="true" 
+      android:foregroundServiceType="location"
 >
       <activity
         android:name=".MainActivity"

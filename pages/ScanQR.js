@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { Camera, useCameraDevice, useCameraPermission, useCodeScanner } from 'react-native-vision-camera';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -7,258 +7,84 @@ import { useNavigation } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import RNQRGenerator from 'rn-qr-generator';
 import database from '@react-native-firebase/database';
-import Geolocation from '@react-native-community/geolocation';  
+import Geolocation from '@react-native-community/geolocation';
 import auth from '@react-native-firebase/auth';
 
 import { MAPBOX_ACCESS_TOKEN } from '@env';
 
-const MAX_FILE_SIZE_MB = 5; 
-const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png']; 
+const MAX_FILE_SIZE_MB = 5;
+const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png'];
 
 const QRCodeScannerScreen = () => {
   const navigation = useNavigation();
   const device = useCameraDevice('back');
   const { hasPermission, requestPermission } = useCameraPermission();
+  const [isScanning, setIsScanning] = useState(false);
   const [lastScannedTime, setLastScannedTime] = useState(0);
   const scanInterval = 2000;
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [locationError, setLocationError] = useState(false);
 
   const sanitizeQRValue = (value) => {
-    return value.replace(/[<>]/g, '').trim(); 
+    return value.replace(/[<>]/g, '').trim();
   };
 
- 
-  // const saveTripToFirebase = async (scannedUid) => {
-  //   try {
-  //     let isTemporaryQR = false;
-  //     let creatorUid = scannedUid;
-  //     let tempData = null;
-  
-  //     const currentUser = auth().currentUser; 
-  //     if (!currentUser) {
-  //       Alert.alert('Error', 'Conductor is not logged in.');
-  //       return;
-  //     }
-  
-  //     const conductorUid = currentUser.uid;
-  //     console.log('Conductor UID:', conductorUid);
-  
-  //     // Fetch the conductor's data
-  //     const conductorRef = database().ref(`/users/accounts/${conductorUid}`);
-  //     const conductorSnapshot = await conductorRef.once('value');
-  //     if (!conductorSnapshot.exists()) {
-  //       Alert.alert('Error', 'Conductor account not found.');
-  //       return;
-  //     }
-  
-  //     const conductorData = conductorSnapshot.val();
-  //     const driverUid = conductorData.creatorUid; // Linked driver UID
-  
-  //     if (!driverUid) {
-  //       Alert.alert('Error', 'No linked driver found for this conductor.');
-  //       return;
-  //     }
-  
-  //     console.log('Driver UID:', driverUid);
-  
-  //     // Fetch driver and jeepney data
-  //     const driverRef = database().ref(`/users/accounts/${driverUid}`);
-  //     const driverSnapshot = await driverRef.once('value');
-  
-  //     if (!driverSnapshot.exists()) {
-  //       Alert.alert('Error', 'Driver account not found.');
-  //       return;
-  //     }
-  
-  //     const driverData = driverSnapshot.val();
-  //     const jeepneyId = driverData.jeep_assigned; // Jeepney UID
-  
-  //     if (!jeepneyId) {
-  //       Alert.alert('Error', 'No jeepney assigned to this driver.');
-  //       return;
-  //     }
-  
-  //     console.log('Jeepney ID:', jeepneyId);
-  
-  //     const jeepneyRef = database().ref(`/jeepneys/${jeepneyId}`);
-  //     const jeepneySnapshot = await jeepneyRef.once('value');
-  
-  //     if (!jeepneySnapshot.exists()) {
-  //       Alert.alert('Error', 'Jeepney not found.');
-  //       return;
-  //     }
-  
-  //     const jeepneyData = jeepneySnapshot.val();
-  //     const maxCapacity = jeepneyData.capacity || 25; // Default max capacity
-  //     let currentCapacity = jeepneyData.currentCapacity ?? maxCapacity;
-  
-  //     // Check if the QR code is temporary
-  //     const tempRef = database().ref(`/temporary`);
-  //     const tempSnapshot = await tempRef.once('value');
-  //     tempSnapshot.forEach((child) => {
-  //       const generatedUidData = child.val();
-  //       const generatedUidKeys = Object.keys(generatedUidData);
-  //       if (generatedUidKeys.includes(scannedUid)) {
-  //         isTemporaryQR = true; // Mark as temporary QR
-  //         creatorUid = child.key; // Use the creatorUid of the QR code
-  //         tempData = generatedUidData[scannedUid];
-  //       }
-  //     });
-  
-  //     // Ensure temporary QR is enabled
-  //     if (isTemporaryQR && (!tempData || tempData.status !== 'enabled')) {
-  //       Alert.alert('Error', 'This temporary QR code is not valid or already disabled.');
-  //       return;
-  //     }
-  
-  //     // Fetch the user data of the creatorUid (can be the passenger or temporary QR creator)
-  //     const userRef = database().ref(`/users/accounts/${creatorUid}`);
-  //     const userSnapshot = await userRef.once('value');
-  
-  //     if (!userSnapshot.exists()) {
-  //       Alert.alert('Error', 'No user found for this QR code.');
-  //       return;
-  //     }
-  
-  //     const userData = userSnapshot.val();
-  
-  //     // Skip linked driver check since passengers and temporary QR codes can be generated by anyone
-  //     console.log(`User Type: ${userData.acc_type}`);
-  
-  //     let fareType = isTemporaryQR ? tempData?.type?.toLowerCase() || 'regular' : userData.acc_type?.toLowerCase() || 'regular';
-  
-  //     const fareRef = database().ref(`/fares/${fareType}`);
-  //     const fareSnapshot = await fareRef.once('value');
-  
-  //     if (!fareSnapshot.exists()) {
-  //       Alert.alert('Error', `Fare type "${fareType}" not found.`);
-  //       return;
-  //     }
-  
-  //     const fareData = fareSnapshot.val();
-  //     const baseFareDistanceMeters = 4000; // Base fare applies up to 4 km
-  //     const baseFare = fareData.firstKm;
-  //     const additionalRatePerMeter = fareData.succeedingKm / 1000;
-  
-  //     const tripListRef = database().ref(`/trips/temporary/${creatorUid}/${scannedUid}`);
-  //     const tripSnapshot = await tripListRef.once('value');
-  
-  //     if (tripSnapshot.exists() && tripSnapshot.val().status === 'in-progress') {
-  //       Geolocation.getCurrentPosition(
-  //         async (position) => {
-  //           const { latitude, longitude } = position.coords;
-  //           const tripData = tripSnapshot.val();
-  //           const { latitude: startLat, longitude: startLong } = tripData.start_loc;
-  
-  //           const directionsUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/${startLong},${startLat};${longitude},${latitude}?access_token=${MAPBOX_ACCESS_TOKEN}`;
-  //           const response = await fetch(directionsUrl);
-  //           const routeData = await response.json();
-  
-  //           if (!response.ok || !routeData.routes || routeData.routes.length === 0) {
-  //             Alert.alert('Error', 'Failed to get route from Mapbox.');
-  //             return;
-  //           }
-  
-  //           const distanceMeters = routeData.routes[0].distance;
-  //           let payment = baseFare;
-  
-  //           if (distanceMeters > baseFareDistanceMeters) {
-  //             const extraMeters = distanceMeters - baseFareDistanceMeters;
-  //             payment += extraMeters * additionalRatePerMeter;
-  //           }
-  
-  //           payment = parseFloat(payment.toFixed(2));
-  
-  //           if (userData.wallet_balance >= payment) {
-  //             await userRef.update({ wallet_balance: userData.wallet_balance - payment });
-  
-  //             await tripListRef.update({
-  //               stop_loc: { latitude, longitude },
-  //               distance: parseFloat((distanceMeters / 1000).toFixed(2)),
-  //               payment,
-  //               status: 'completed',
-  //             });
-  
-  //             currentCapacity = Math.min(maxCapacity, currentCapacity + 1); // Increment capacity back
-  //             await jeepneyRef.update({ currentCapacity });
-  
-  //             const transactionsRef = database().ref(`/users/accounts/${creatorUid}/transactions`);
-  //             await transactionsRef.push({
-  //               type: 'trip',
-  //               description: `Trip completed`,
-  //               amount: payment,
-  //               distance: parseFloat((distanceMeters / 1000).toFixed(2)),
-  //               status: 'completed',
-  //               createdAt: new Date().toISOString(),
-  //             });
-  
-  //             if (isTemporaryQR) {
-  //               const qrRef = database().ref(`/temporary/${creatorUid}/${scannedUid}`);
-  //               await qrRef.update({ status: 'disabled' });
-  //             }
-  
-  //             Alert.alert('Trip Completed', `Trip completed! Fare: ₱${payment.toFixed(2)}. Seats Available: ${currentCapacity}`);
-  //           } else {
-  //             Alert.alert('Insufficient Balance', 'Wallet balance is not enough to complete the trip.');
-  //           }
-  //         },
-  //         (error) => {
-  //           console.error('Error getting location:', error);
-  //           Alert.alert('Error', 'Failed to get location.');
-  //         },
-  //         { enableHighAccuracy: true, timeout: 15000, maximumAge: 1000 }
-  //       );
-  //     } else {
-  //       if (currentCapacity <= 0) {
-  //         Alert.alert('Error', 'The jeepney is full.');
-  //         return;
-  //       }
-  
-  //       Geolocation.getCurrentPosition(
-  //         async (position) => {
-  //           const { latitude, longitude } = position.coords;
-  
-  //           await tripListRef.set({
-  //             start_loc: { latitude, longitude },
-  //             stop_loc: null,
-  //             distance: 0,
-  //             payment: 0,
-  //             status: 'in-progress',
-  //             type: fareType,
-  //             qrId: scannedUid,
-  //             timestamp: Date.now(),
-  //           });
-  
-  //           currentCapacity -= 1;
-  //           await jeepneyRef.update({ currentCapacity });
-  
-  //           Alert.alert('Trip Started', `New trip has been started! Remaining Seats: ${currentCapacity}`);
-  //         },
-  //         (error) => {
-  //           console.error('Error getting location:', error);
-  //           Alert.alert('Error', 'Failed to get location.');
-  //         },
-  //         { enableHighAccuracy: true, timeout: 15000, maximumAge: 1000 }
-  //       );
-  //     }
-  //   } catch (error) {
-  //     console.error('Error saving trip to Firebase:', error);
-  //     Alert.alert('Error', 'Failed to save trip data.');
-  //   }
-  // };
+  const fetchLocationFromFirebase = async (userId) => {
+    try {
+      const snapshot = await database().ref(`/users/locations/${userId}`).once('value');
+      if (snapshot.exists()) {
+        const location = snapshot.val();
+        return { latitude: location.latitude, longitude: location.longitude };
+      } else {
+        throw new Error('No location data available in Firebase.');
+      }
+    } catch (error) {
+      console.error('Error fetching location from Firebase:', error);
+      return null;
+    }
+  };
+
+  const getLocation = async (userId) => {
+    try {
+      const location = await new Promise((resolve, reject) => {
+        Geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            setLocationError(false); // Clear error state on success
+            resolve({ latitude, longitude });
+          },
+          (error) => {
+            console.warn('Geolocation failed, falling back to Firebase:', error);
+            setLocationError(true); // Set error state on failure
+            reject(error);
+          },
+          { enableHighAccuracy: true, timeout: 15000, maximumAge: 1000 }
+        );
+      });
+      return location;
+    } catch (geolocationError) {
+      const fallbackLocation = await fetchLocationFromFirebase(userId);
+      if (fallbackLocation) {
+        setLocationError(false); // Clear error state if Firebase fallback succeeds
+        return fallbackLocation;
+      } else {
+        setLocationError(true); // Set error state if both fail
+        throw new Error('Failed to retrieve location from both Geolocation and Firebase.');
+      }
+    }
+  };
   
   const saveTripToFirebase = async (scannedUid) => {
     try {
       let isTemporaryQR = false;
       let creatorUid = scannedUid;
       let tempData = null;
-  
+
       const currentUser = auth().currentUser;
       if (!currentUser) {
         Alert.alert('Error', 'Conductor is not logged in.');
         return;
       }
-  
+
       const conductorUid = currentUser.uid;
       const conductorRef = database().ref(`/users/accounts/${conductorUid}`);
       const conductorSnapshot = await conductorRef.once('value');
@@ -266,7 +92,7 @@ const QRCodeScannerScreen = () => {
         Alert.alert('Error', 'Conductor account not found.');
         return;
       }
-  
+
       const conductorData = conductorSnapshot.val();
       const conductorName = `${conductorData.firstName || ''} ${conductorData.lastName || ''}`.trim();
       const driverUid = conductorData.creatorUid;
@@ -274,32 +100,32 @@ const QRCodeScannerScreen = () => {
         Alert.alert('Error', 'No linked driver found for this conductor.');
         return;
       }
-  
+
       const driverRef = database().ref(`/users/accounts/${driverUid}`);
       const driverSnapshot = await driverRef.once('value');
       if (!driverSnapshot.exists()) {
         Alert.alert('Error', 'Driver account not found.');
         return;
       }
-  
+
       const driverData = driverSnapshot.val();
       const jeepneyId = driverData.jeep_assigned;
       if (!jeepneyId) {
         Alert.alert('Error', 'No jeepney assigned to this driver.');
         return;
       }
-  
+
       const jeepneyRef = database().ref(`/jeepneys/${jeepneyId}`);
       const jeepneySnapshot = await jeepneyRef.once('value');
       if (!jeepneySnapshot.exists()) {
         Alert.alert('Error', 'Jeepney not found.');
         return;
       }
-  
+
       const jeepneyData = jeepneySnapshot.val();
       const maxCapacity = jeepneyData.capacity || 25;
       let currentCapacity = jeepneyData.currentCapacity ?? maxCapacity;
-  
+
       const tempRef = database().ref(`/temporary`);
       const tempSnapshot = await tempRef.once('value');
       tempSnapshot.forEach((child) => {
@@ -311,210 +137,201 @@ const QRCodeScannerScreen = () => {
           tempData = generatedUidData[scannedUid];
         }
       });
-  
+
       if (isTemporaryQR && (!tempData || tempData.status !== 'enabled')) {
         Alert.alert('Error', 'This temporary QR code is not valid or already disabled.');
         return;
       }
-  
+
       const userRef = database().ref(`/users/accounts/${creatorUid}`);
       const userSnapshot = await userRef.once('value');
       if (!userSnapshot.exists()) {
         Alert.alert('Error', 'No user found for this QR code.');
         return;
       }
-  
+
       const userData = userSnapshot.val();
       let fareType = isTemporaryQR ? tempData?.type?.toLowerCase() || 'regular' : userData.acc_type?.toLowerCase() || 'regular';
-  
+
       const fareRef = database().ref(`/fares/${fareType}`);
       const fareSnapshot = await fareRef.once('value');
       if (!fareSnapshot.exists()) {
         Alert.alert('Error', `Fare type "${fareType}" not found.`);
         return;
       }
-  
+
       const fareData = fareSnapshot.val();
       const baseFareDistanceMeters = 4000;
       const baseFare = fareData.firstKm;
       const additionalRatePerMeter = fareData.succeedingKm / 1000;
-  
+
       const tripListRef = database().ref(`/trips/temporary/${creatorUid}/${scannedUid}`);
       const tripSnapshot = await tripListRef.once('value');
-  
+
       if (tripSnapshot.exists() && tripSnapshot.val().status === 'in-progress') {
-        Geolocation.getCurrentPosition(
-          async (position) => {
-            const { latitude, longitude } = position.coords;
-            const tripData = tripSnapshot.val();
-            const { latitude: startLat, longitude: startLong } = tripData.start_loc;
-  
-            const directionsUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/${startLong},${startLat};${longitude},${latitude}?access_token=${MAPBOX_ACCESS_TOKEN}`;
-            const response = await fetch(directionsUrl);
-            const routeData = await response.json();
-  
-            if (!response.ok || !routeData.routes || routeData.routes.length === 0) {
-              Alert.alert('Error', 'Failed to get route from Mapbox.');
-              return;
-            }
-  
-            const distanceMeters = routeData.routes[0].distance;
-            let payment = baseFare;
-  
-            if (distanceMeters > baseFareDistanceMeters) {
-              const extraMeters = distanceMeters - baseFareDistanceMeters;
-              payment += extraMeters * additionalRatePerMeter;
-            }
-  
-            payment = parseFloat(payment.toFixed(2));
-  
-            if (userData.wallet_balance >= payment) {
-              await userRef.update({ wallet_balance: userData.wallet_balance - payment });
-  
-              await conductorRef.update({
-                wallet_balance: (conductorData.wallet_balance || 0) + payment,
-              });
-  
-              const scannerTransactionsRef = database().ref(`/users/accounts/${conductorUid}/transactions`);
-              await scannerTransactionsRef.push({
-                type: 'trip',
-                description: `Received payment from passenger`,
-                passengerUid: creatorUid,
-                passengerName: `${userData.firstName || ''} ${userData.lastName || ''}`.trim(),
-                amount: payment,
-                distance: parseFloat((distanceMeters / 1000).toFixed(2)),
-                createdAt: new Date().toISOString(),
-              });
-  
-              await tripListRef.update({
-                stop_loc: { latitude, longitude },
-                distance: parseFloat((distanceMeters / 1000).toFixed(2)),
-                payment,
-                status: 'completed',
-              });
-  
-              currentCapacity = Math.min(maxCapacity, currentCapacity + 1);
-              await jeepneyRef.update({ currentCapacity });
-  
-              const transactionsRef = database().ref(`/users/accounts/${creatorUid}/transactions`);
-              await transactionsRef.push({
-                type: 'trip',
-                description: `Trip payment to conductor`,
-                conductorUid: conductorUid,
-                conductorName: conductorName,
-                amount: payment,
-                distance: parseFloat((distanceMeters / 1000).toFixed(2)),
-                createdAt: new Date().toISOString(),
-              });
-  
-              const today = new Date().toISOString().split('T')[0];
-              const incomeRef = database().ref(`/jeepneys/${jeepneyId}/dailyStats/${today}`);
-              const incomeSnapshot = await incomeRef.once('value');
-  
-              const dailyData = incomeSnapshot.val() || { totalIncome: 0, totalPassengers: 0 };
-              const updatedDailyData = {
-                totalIncome: (dailyData.totalIncome || 0) + payment,
-                totalPassengers: (dailyData.totalPassengers || 0) + 1,
-              };
-  
-              await incomeRef.update(updatedDailyData);
-  
-              if (isTemporaryQR) {
-                const qrRef = database().ref(`/temporary/${creatorUid}/${scannedUid}`);
-                await qrRef.update({ status: 'disabled' });
-              }
-  
-              Alert.alert(
-                'Trip Completed',
-                `Trip completed! Fare: ₱${payment.toFixed(2)}. Seats Available: ${currentCapacity}`
-              );
-            } else {
-              Alert.alert('Insufficient Balance', 'Wallet balance is not enough to complete the trip.');
-            }
-          },
-          (error) => {
-            console.error('Error getting location:', error);
-            Alert.alert('Error', 'Failed to get location.');
-          },
-          { enableHighAccuracy: true, timeout: 15000, maximumAge: 1000 }
-        );
+        const location = await getLocation(currentUser.uid);
+        if (!location) throw new Error('Failed to retrieve location.');
+
+        const { latitude, longitude } = location;
+        const tripData = tripSnapshot.val();
+        const { latitude: startLat, longitude: startLong } = tripData.start_loc;
+
+        const directionsUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/${startLong},${startLat};${longitude},${latitude}?access_token=${MAPBOX_ACCESS_TOKEN}`;
+        const response = await fetch(directionsUrl);
+        const routeData = await response.json();
+
+        if (!response.ok || !routeData.routes || routeData.routes.length === 0) {
+          Alert.alert('Error', 'Failed to get route from Mapbox.');
+          return;
+        }
+
+        const distanceMeters = routeData.routes[0].distance;
+        let payment = baseFare;
+
+        if (distanceMeters > baseFareDistanceMeters) {
+          const extraMeters = distanceMeters - baseFareDistanceMeters;
+          payment += extraMeters * additionalRatePerMeter;
+        }
+
+        payment = parseFloat(payment.toFixed(2));
+
+        if (userData.wallet_balance >= payment) {
+          await userRef.update({ wallet_balance: userData.wallet_balance - payment });
+
+          await conductorRef.update({
+            wallet_balance: (conductorData.wallet_balance || 0) + payment,
+          });
+
+          const scannerTransactionsRef = database().ref(`/users/accounts/${conductorUid}/transactions`);
+          await scannerTransactionsRef.push({
+            type: 'trip',
+            description: `Received payment from passenger`,
+            passengerUid: creatorUid,
+            passengerName: `${userData.firstName || ''} ${userData.lastName || ''}`.trim(),
+            amount: payment,
+            distance: parseFloat((distanceMeters / 1000).toFixed(2)),
+            createdAt: new Date().toISOString(),
+          });
+
+          await tripListRef.update({
+            stop_loc: { latitude, longitude },
+            distance: parseFloat((distanceMeters / 1000).toFixed(2)),
+            payment,
+            status: 'completed',
+          });
+
+          currentCapacity = Math.min(maxCapacity, currentCapacity + 1);
+          await jeepneyRef.update({ currentCapacity });
+
+          const transactionsRef = database().ref(`/users/accounts/${creatorUid}/transactions`);
+          await transactionsRef.push({
+            type: 'trip',
+            description: `Trip payment to conductor`,
+            conductorUid: conductorUid,
+            conductorName: conductorName,
+            amount: payment,
+            distance: parseFloat((distanceMeters / 1000).toFixed(2)),
+            createdAt: new Date().toISOString(),
+          });
+
+          const today = new Date().toISOString().split('T')[0];
+          const incomeRef = database().ref(`/jeepneys/${jeepneyId}/dailyStats/${today}`);
+          const incomeSnapshot = await incomeRef.once('value');
+
+          const dailyData = incomeSnapshot.val() || { totalIncome: 0, totalPassengers: 0 };
+          const updatedDailyData = {
+            totalIncome: (dailyData.totalIncome || 0) + payment,
+            totalPassengers: (dailyData.totalPassengers || 0) + 1,
+          };
+
+          await incomeRef.update(updatedDailyData);
+
+          if (isTemporaryQR) {
+            const qrRef = database().ref(`/temporary/${creatorUid}/${scannedUid}`);
+            await qrRef.update({ status: 'disabled' });
+          }
+
+          Alert.alert(
+            'Trip Completed',
+            `Trip completed! Fare: ₱${payment.toFixed(2)}. Seats Available: ${currentCapacity}`
+          );
+        } else {
+          Alert.alert('Insufficient Balance', 'Wallet balance is not enough to complete the trip.');
+        }
       } else {
         if (currentCapacity <= 0) {
           Alert.alert('Error', 'The jeepney is full.');
           return;
         }
-  
-        Geolocation.getCurrentPosition(
-          async (position) => {
-            const { latitude, longitude } = position.coords;
-  
-            await tripListRef.set({
-              start_loc: { latitude, longitude },
-              stop_loc: null,
-              distance: 0,
-              payment: 0,
-              status: 'in-progress',
-              type: fareType,
-              qrId: scannedUid,
-              timestamp: Date.now(),
-            });
-  
-            currentCapacity -= 1;
-            await jeepneyRef.update({ currentCapacity });
-  
-            Alert.alert('Trip Started', `New trip has been started! Remaining Seats: ${currentCapacity}`);
-          },
-          (error) => {
-            console.error('Error getting location:', error);
-            Alert.alert('Error', 'Failed to get location.');
-          },
-          { enableHighAccuracy: true, timeout: 15000, maximumAge: 1000 }
-        );
+
+        const location = await getLocation(currentUser.uid);
+        if (!location) throw new Error('Failed to retrieve location.');
+
+        const { latitude, longitude } = location;
+
+        await tripListRef.set({
+          start_loc: { latitude, longitude },
+          stop_loc: null,
+          distance: 0,
+          payment: 0,
+          status: 'in-progress',
+          type: fareType,
+          qrId: scannedUid,
+          timestamp: Date.now(),
+        });
+
+        currentCapacity -= 1;
+        await jeepneyRef.update({ currentCapacity });
+
+        Alert.alert('Trip Started', `New trip has been started! Remaining Seats: ${currentCapacity}`);
       }
     } catch (error) {
       console.error('Error saving trip to Firebase:', error);
       Alert.alert('Error', 'Failed to save trip data.');
     }
   };
-  
-  
 
   const codeScanner = useCodeScanner({
     codeTypes: ['qr'],
     onCodeScanned: (codes) => {
       const now = Date.now();
-      if (codes.length > 0 && now - lastScannedTime > scanInterval) {
+      if (!isScanning && codes.length > 0 && now - lastScannedTime > scanInterval) {
+        setIsScanning(true);
         const scannedUid = sanitizeQRValue(codes[0].value);
         console.log(`Scanned User UID: ${scannedUid}`);
-        setLastScannedTime(now); // Update the last scanned time
-        saveTripToFirebase(scannedUid); // Save scanned QR UID to Firebase
+        setLastScannedTime(now);
+        saveTripToFirebase(scannedUid);
+
+        setTimeout(() => {
+          setIsScanning(false);
+        }, scanInterval);
       } else {
-        console.log('Scan ignored due to interval');
+        console.log('Scan ignored due to interval or already scanning');
       }
     },
   });
-
+  
   const uploadQrCode = async () => {
-    if (isProcessing) return;
-    setIsProcessing(true);
+    if (isScanning) return;
+    setIsScanning(true);
 
     try {
       const result = await launchImageLibrary({ mediaType: 'photo' });
 
       if (result.assets && result.assets.length > 0) {
         const fileUri = result.assets[0].uri;
-        const fileSize = result.assets[0].fileSize / (1024 * 1024); // File size in MB
+        const fileSize = result.assets[0].fileSize / (1024 * 1024);
         const fileExtension = fileUri.split('.').pop().toLowerCase();
 
         if (fileSize > MAX_FILE_SIZE_MB) {
           Alert.alert('Error', `File size exceeds ${MAX_FILE_SIZE_MB}MB. Please upload a smaller image.`);
-          setIsProcessing(false);
+          setIsScanning(false);
           return;
         }
 
         if (!ALLOWED_EXTENSIONS.includes(fileExtension)) {
           Alert.alert('Error', 'Unsupported file format. Please upload a JPG or PNG image.');
-          setIsProcessing(false);
+          setIsScanning(false);
           return;
         }
 
@@ -524,7 +341,7 @@ const QRCodeScannerScreen = () => {
             if (values && values.length > 0) {
               const sanitizedQR = sanitizeQRValue(values[0]);
               console.log('Decoded QR Code Content:', sanitizedQR);
-              saveTripToFirebase(sanitizedQR); // Save detected QR code to Firebase
+              saveTripToFirebase(sanitizedQR);
             } else {
               Alert.alert('Error', 'No QR code detected in the image.');
             }
@@ -534,16 +351,16 @@ const QRCodeScannerScreen = () => {
             Alert.alert('Error', 'Failed to decode QR code.');
           })
           .finally(() => {
-            setIsProcessing(false);
+            setIsScanning(false);
           });
       } else {
         Alert.alert('Error', 'No image selected.');
-        setIsProcessing(false);
+        setIsScanning(false);
       }
     } catch (error) {
       console.error('Error uploading QR code:', error);
       Alert.alert('Error', 'Failed to upload or read QR code image.');
-      setIsProcessing(false);
+      setIsScanning(false);
     }
   };
 
@@ -571,24 +388,37 @@ const QRCodeScannerScreen = () => {
       </View>
     );
   }
-
   return (
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
+        
         <Text style={styles.headerTitle}>QR Code Scanner</Text>
+    
+ 
       </View>
+      {locationError && (
+  <View style={styles.errorContainer}>
+    <Text style={styles.errorText}>Unable to retrieve GPS location. Please ensure GPS is enabled.</Text>
+  </View>
+)}
+
       <Text style={styles.scannerTitle}>Scan passenger QR code</Text>
       <View style={styles.qrContainer}>
         <View style={styles.qrBox}>
           <Camera
             style={StyleSheet.absoluteFill}
             device={device}
-            isActive={true}
+            isActive={!isScanning}
             codeScanner={codeScanner}
           />
+          {isScanning && (
+            <View style={styles.loadingOverlay}>
+              <ActivityIndicator size="large" color="#FFF" />
+            </View>
+          )}
           <View style={styles.iconOverlay}>
             <MaterialCommunityIcons name="line-scan" size={300} color="#4D7550" />
           </View>
@@ -599,22 +429,22 @@ const QRCodeScannerScreen = () => {
           <Text style={styles.buttonText}>QR Code Share</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.button2, isProcessing && { opacity: 0.6 }]}
+          style={[styles.button2, isScanning && { opacity: 0.6 }]}
           onPress={uploadQrCode}
-          disabled={isProcessing}>
-          <Text style={styles.buttonText}>{isProcessing ? 'Uploading...' : 'Upload QR Code'}</Text>
+          disabled={isScanning}>
+          <Text style={styles.buttonText}>{isScanning ? 'Processing...' : 'Upload QR Code'}</Text>
         </TouchableOpacity>
       </View>
       <View style={styles.buttonContainer}>
         <TouchableOpacity style={styles.button3} onPress={() => navigation.navigate('AllQR')}>
           <Text style={styles.buttonText}>View ALL QR Generated</Text>
         </TouchableOpacity>
-        
       </View>
     </View>
   );
 };
 
+ 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F4F4F4' },
   header: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', padding: 16, borderBottomWidth: 1, borderBottomColor: '#E0E0E0' },
@@ -631,6 +461,20 @@ const styles = StyleSheet.create({
   buttonText: { color: '#FFF', fontSize: 14, fontWeight: '500' },
   centeredContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#000' },
   infoText: { color: '#fff', fontSize: 16, textAlign: 'center' },
+  loadingOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.5)' },
+  errorContainer: {
+    backgroundColor: '#black',
+    padding: 10,
+    borderRadius: 5,
+    marginHorizontal: 20,
+    marginTop: 10,
+  },
+  errorText: {
+    color: 'red',
+    fontSize: 14,
+    textAlign: 'center',
+  },
+  
 });
 
 export default QRCodeScannerScreen;

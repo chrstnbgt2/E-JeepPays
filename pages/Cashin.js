@@ -30,8 +30,8 @@ const CashInScreen = () => {
     const currentUser = auth().currentUser;
     if (currentUser) {
       setUserUid(currentUser.uid);
-      setUserEmail(currentUser.email || 'no-email@example.com'); // Default fallback
-      setUserName(currentUser.displayName || 'Guest User'); // Default fallback if display name is not set
+      setUserEmail(currentUser.email || 'no-email@example.com'); 
+      setUserName(currentUser.displayName || 'Guest User');  
     } else {
       Alert.alert('Error', 'You are not logged in.');
       navigation.goBack();
@@ -43,8 +43,8 @@ const CashInScreen = () => {
       const payload = {
         data: {
           attributes: {
-            type: paymentMethod.toLowerCase(), // 'gcash' or 'paymaya'
-            amount: Math.round(amount * 100), // Convert PHP to centavos
+            type: paymentMethod.toLowerCase(), 
+            amount: Math.round(amount * 100),  
             currency: 'PHP',
             redirect: {
               success: 'https://example.com/success',  
@@ -92,17 +92,15 @@ const CashInScreen = () => {
     setLoading(true);
   
     try {
-      // Step 1: Create Payment Source for GCash/PayMaya
-      const source = await createPaymentSource(selectedOption);
+       const source = await createPaymentSource(selectedOption);
       const checkoutUrl = source.attributes.redirect.checkout_url;
       const sourceId = source.id;
   
       console.log('Source ID:', sourceId);
       console.log('Redirect to:', checkoutUrl);
-      console.log('Amount passed:', Number(amount)); // Log to ensure valid value
+      console.log('Amount passed:', Number(amount));  
   
-      // Step 2: Navigate to WebView for Payment
-      navigation.navigate('WebViewScreen', { checkoutUrl, sourceId, amount: Number(amount) });
+       navigation.navigate('WebViewScreen', { checkoutUrl, sourceId, amount: Number(amount) });
     } catch (error) {
       Alert.alert('Error', 'Failed to process cash-in. Please try again.');
       console.error('Error:', error);
@@ -121,7 +119,7 @@ const CashInScreen = () => {
 
       <Text style={styles.sectionTitle}>Select a Payment Method</Text>
       <View style={styles.card}>
-        {['GCash', 'PayMaya'].map((option) => (
+        {['GCash'].map((option) => (
           <TouchableOpacity
             key={option}
             style={[styles.listItem, selectedOption === option && styles.selectedOption]}
