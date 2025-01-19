@@ -397,7 +397,7 @@ const DisplayAllQR_Conductor = () => {
         renderItem={({ item }) => (
           <ViewShot options={{ format: 'png', quality: 1 }}>
             <View style={styles.qrCard}>
-              <Text style={styles.qrUsername}>Username: {item.username}</Text>
+              <Text style={styles.qrUsername}>Passenger No.: {item.username}</Text>
               <Text style={styles.qrType}>Type: {item.type}</Text>
               <QRCode value={item.key || 'N/A'} size={200} logoBackgroundColor="transparent" />
               {renderTripButton(item)}

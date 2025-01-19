@@ -63,7 +63,7 @@ const JeepDetailScreen = ({ route, navigation }) => {
           style={styles.backIcon}
           onPress={() => navigation.goBack()}
         />
-        <Text style={styles.headerTitle}>Jeepney Details</Text>
+        <Text style={styles.headerTitle}>Check Seat</Text>
       </View>
 
       {/* Content */}

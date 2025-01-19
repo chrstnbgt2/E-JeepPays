@@ -127,6 +127,8 @@ const HomeScreenConductor = () => {
       minute: '2-digit',
     });
   };
+
+
   const renderTransactionCard = (item) => {
     const amount = parseFloat(item.amount) || 0;
     const distance = parseFloat(item.distance) || 0;
@@ -142,6 +144,10 @@ const HomeScreenConductor = () => {
       iconName = 'arrow-down-outline';
       transactionTitle = 'Cash Out';
       color = '#FF6B6B';
+    }else if (item.type === 'transferred') {
+      iconName = 'swap-horizontal-outline'; 
+      transactionTitle = 'Transferred';
+      color = '#FFC107';  
     }
 
     return (

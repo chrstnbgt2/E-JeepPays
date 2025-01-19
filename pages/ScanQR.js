@@ -391,10 +391,7 @@ const QRCodeScannerScreen = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#000" />
-        </TouchableOpacity>
-        
+       
         <Text style={styles.headerTitle}>QR Code Scanner</Text>
     
  
@@ -419,9 +416,7 @@ const QRCodeScannerScreen = () => {
               <ActivityIndicator size="large" color="#FFF" />
             </View>
           )}
-          <View style={styles.iconOverlay}>
-            <MaterialCommunityIcons name="line-scan" size={300} color="#4D7550" />
-          </View>
+        
         </View>
       </View>
       <View style={styles.buttonContainer}>
@@ -446,11 +441,21 @@ const QRCodeScannerScreen = () => {
 
  
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F4F4F4' },
-  header: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', padding: 16, borderBottomWidth: 1, borderBottomColor: '#E0E0E0' },
+  container: { flex: 1, backgroundColor: '#F9F9F9' },
+  header: {
+    backgroundColor: '#F4F4F4',
+    paddingVertical: 15,
+    alignItems: 'center',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    marginBottom: 10,
+  },
   backButton: { marginRight: 8 },
-  headerTitle: { fontSize: 18, fontWeight: 'bold', color: '#000' },
-  scannerTitle: { marginTop: 20, fontSize: 16, textAlign: 'center', color: '#333', fontWeight: '500' },
+  headerTitle: {
+    fontSize: 25,
+    fontWeight: 'bold',
+    color: '#000',
+  },  scannerTitle: { marginTop: 20, fontSize: 16, textAlign: 'center', color: '#333', fontWeight: '500' },
   qrContainer: { alignSelf: 'center', marginTop: 50, width: 350, height: 350, borderWidth: 2, borderColor: '#7FA06F', borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   qrBox: { width: '90%', height: '90%', borderWidth: 2, borderColor: '#000', borderRadius: 8, overflow: 'hidden', backgroundColor: '#fff' },
   iconOverlay: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center' },

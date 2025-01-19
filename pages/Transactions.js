@@ -99,7 +99,7 @@ const HistoryScreen = () => {
           <Ionicons
             name={iconName}
             size={30}
-            color={color} // Color based on transaction type
+            color={color}  
             style={styles.transactionIcon}
           />
           <View style={styles.transactionInfo}>

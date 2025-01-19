@@ -128,8 +128,8 @@ const JeepTrackerScreen = ({ navigation }) => {
   const refreshMap = async () => {
     setIsRefreshing(true);
     console.log('Refreshing map...');
-    setNearbyJeepneys([]); // Clear current markers to reload
-    await requestLocationPermission(); // Re-request location and subscribe
+    setNearbyJeepneys([]);  
+    await requestLocationPermission(); 
     setIsRefreshing(false);
   };
 
@@ -203,15 +203,21 @@ const JeepTrackerScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F4F4F4',
+    backgroundColor: '#F9F9F9',
   },
   header: {
+    backgroundColor: '#F4F4F4',
+    paddingVertical: 15,
     alignItems: 'center',
-    marginBottom: 8,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+    marginBottom: 10,
   },
+  backButton: { marginRight: 8 },
   headerTitle: {
-    fontSize: 20,
+    fontSize: 25,
     fontWeight: 'bold',
+    color: '#000',
   },
   note: {
     fontSize: 14,
