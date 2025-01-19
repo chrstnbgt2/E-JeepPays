@@ -50,36 +50,34 @@ const DisplayAllQR_Conductor = () => {
       const tempRef = database().ref(`temporary/${userLoggedUid}`);
       const tripsRef = database().ref(`trips/temporary/${userLoggedUid}`);
   
-      // Listen for real-time updates on both nodes
-      const tempListener = tempRef.on('value', (tempSnapshot) => {
+       const tempListener = tempRef.on('value', (tempSnapshot) => {
         const qrCodes = [];
         tempSnapshot.forEach((child) => {
           const qrData = child.val();
   
-          // Only include QR codes with `enabled` status
+      
           if (qrData.status === 'enabled') {
             qrCodes.push({
               key: child.key,
-              ...qrData, // Include fields like `username` and `type`
+              ...qrData,  
             });
           }
         });
   
-        // Listen for updates in trips and merge statuses
-        const tripsListener = tripsRef.on('value', (tripsSnapshot) => {
+         const tripsListener = tripsRef.on('value', (tripsSnapshot) => {
           const tripStatuses = {};
           tripsSnapshot.forEach((child) => {
             const tripData = child.val();
-            tripStatuses[child.key] = tripData.status || 'completed'; // Default to 'completed'
+            tripStatuses[child.key] = tripData.status || 'completed';  
           });
   
-          // Merge `status` from `trips/temporary` into `qrCodes`
+    
           const mergedData = qrCodes.map((qr) => ({
             ...qr,
-            status: tripStatuses[qr.key] || qr.status, // Use trip status if available
+            status: tripStatuses[qr.key] || qr.status, 
           }));
   
-          // Update QR list and apply search filtering
+           
           setQrList(mergedData);
           setFilteredQrList(() => {
             if (searchQuery.trim() === '') return mergedData;
@@ -91,18 +89,15 @@ const DisplayAllQR_Conductor = () => {
           });
         });
   
-        // Cleanup trips listener when temp listener updates
-        return () => tripsRef.off('value', tripsListener);
+         return () => tripsRef.off('value', tripsListener);
       });
   
-      // Cleanup temp listener on unmount
-      return () => tempRef.off('value', tempListener);
+       return () => tempRef.off('value', tempListener);
     };
   
     fetchUserQrCodes();
   
-    // Cleanup listeners on unmount
-    return () => {
+     return () => {
       const currentUser = auth().currentUser;
       if (currentUser) {
         const userLoggedUid = currentUser.uid;
@@ -138,22 +133,19 @@ const DisplayAllQR_Conductor = () => {
   
       const conductorUid = currentUser.uid;
   
-      // Check if the trip is already in progress
-      const tripRef = database().ref(`/trips/temporary/${conductorUid}/${item.key}`);
+       const tripRef = database().ref(`/trips/temporary/${conductorUid}/${item.key}`);
       const tripSnapshot = await tripRef.once('value');
       if (tripSnapshot.exists() && tripSnapshot.val().status === 'in-progress') {
         Alert.alert('Error', 'This trip is already in progress.');
         return;
       }
   
-      // Get current location
-      const location = await getLocation();
+       const location = await getLocation();
       if (!location) throw new Error('Failed to retrieve location.');
   
       const { latitude, longitude } = location;
   
-      // Get jeepney information
-      const conductorRef = database().ref(`/users/accounts/${conductorUid}`);
+       const conductorRef = database().ref(`/users/accounts/${conductorUid}`);
       const conductorSnapshot = await conductorRef.once('value');
       const conductorData = conductorSnapshot.val();
   
@@ -230,6 +222,20 @@ const DisplayAllQR_Conductor = () => {
       const tripData = tripSnapshot.val();
       const { latitude: startLat, longitude: startLong } = tripData.start_loc;
   
+      // Fetch fare rates based on QR type
+      const fareType = item.type.toLowerCase(); // 'discount' or 'regular'
+      const fareRef = database().ref(`/fares/${fareType}`);
+      const fareSnapshot = await fareRef.once('value');
+      if (!fareSnapshot.exists()) {
+        Alert.alert('Error', `Fare type "${fareType}" not found.`);
+        return;
+      }
+  
+      const fareData = fareSnapshot.val();
+      const baseFareDistanceMeters = 4000;  
+      const baseFare = fareData.firstKm;  
+      const additionalRatePerMeter = fareData.succeedingKm / 1000;  
+  
       // Calculate route using Mapbox
       const directionsUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/${startLong},${startLat};${longitude},${latitude}?access_token=${MAPBOX_ACCESS_TOKEN}`;
       const response = await fetch(directionsUrl);
@@ -242,10 +248,7 @@ const DisplayAllQR_Conductor = () => {
   
       const distanceMeters = routeData.routes[0].distance;
   
-      // Calculate fare
-      const baseFareDistanceMeters = 4000; // First 4km
-      const baseFare = 15; // Example base fare
-      const additionalRatePerMeter = 2 / 1000; // Example rate
+      // Calculate payment
       let payment = baseFare;
   
       if (distanceMeters > baseFareDistanceMeters) {
@@ -317,9 +320,8 @@ const DisplayAllQR_Conductor = () => {
         createdAt: new Date().toISOString(),
       });
   
-      // Update conductor wallet balance
-      await conductorRef.update({
-        wallet_balance: (conductorData.wallet_balance || 0) + payment,
+       await conductorRef.update({
+        wallet_balance: (conductorData.wallet_balance || 0) - payment,
       });
   
       Alert.alert(
@@ -339,7 +341,7 @@ const DisplayAllQR_Conductor = () => {
   
   
   const renderTripButton = (item) => {
-    const isItemInProgress = item.status === 'in-progress'; // Dynamically check the status
+    const isItemInProgress = item.status === 'in-progress';  
   
     return (
       <View style={styles.buttonContainer}>
