@@ -144,30 +144,6 @@ const TransferScreen = ({ navigation }) => {
         sender: `${conductorData.firstName || ''} ${conductorData.lastName || ''}`.trim(),
       });
 
-      const transactionData1 = {
-        conductorUid,
-        amount: transferAmount,
-        status: 'unread',
-        createdAt: new Date().toISOString(),
-        type: 'transferred',
-        message: `Transfer Payment with an amount of ₱${transferAmount}`,
-      };
-      
-      await database().ref(`/notification_user/${conductorUid}`).push(transactionData1);
-
-      const transactionData2 = {
-        driverUid,
-        amount: transferAmount,
-        status: 'unread',
-        createdAt: new Date().toISOString(),
-        type: 'transferred',
-        message: `Transfer Received with an amount of ₱${transferAmount}`,
-      };
-      
-      await database().ref(`/notification_user/${driverUid}`).push(transactionData2);
-      
-
-
       Alert.alert('Success', `₱${transferAmount.toFixed(2)} has been transferred to ${driverName}.`);
       setAmount('');
       setConductorBalance(newConductorBalance.toFixed(2)); // Update balance displayed

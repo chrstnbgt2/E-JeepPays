@@ -14,7 +14,6 @@ import { useNavigation } from '@react-navigation/native';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import auth from '@react-native-firebase/auth';
 import database from '@react-native-firebase/database';
-import { FlatList } from 'react-native-gesture-handler';
 
 const HomeScreenConductor = () => {
   const navigation = useNavigation();
@@ -26,8 +25,8 @@ const HomeScreenConductor = () => {
  
   
   useEffect(() => {
-    let userRef, jeepneyStatsRef, transactionsRef, driverRef;
-  
+    let userRef, jeepneyStatsRef, transactionsRef;
+
     const fetchUserAndStats = async () => {
       try {
         const currentUser = auth().currentUser;
@@ -35,46 +34,40 @@ const HomeScreenConductor = () => {
           console.warn('No user is currently logged in.');
           return;
         }
-  
+
         const conductorUid = currentUser.uid;
         userRef = database().ref(`users/accounts/${conductorUid}`);
-  
-        // ✅ Real-time listener for user details
-        userRef.on('value', (snapshot) => {
-          if (!snapshot.exists()) {
-            console.warn('No user data found.');
-            return;
-          }
-  
-          const userData = snapshot.val();
-          setUsername(userData.firstName || 'User');
-          setWalletBalance(userData.wallet_balance?.toFixed(2) || '0.00');
-  
-          const driverUid = userData.creatorUid;
-          if (!driverUid) {
-            console.warn('No linked driver found.');
-            return;
-          }
-  
-          // ✅ Fetch driver details in real-time
-          driverRef = database().ref(`/users/accounts/${driverUid}`);
-          driverRef.on('value', (driverSnapshot) => {
+
+        // Real-time listener for user details
+        userRef.on('value', async (snapshot) => {
+          if (snapshot.exists()) {
+            const userData = snapshot.val();
+            setUsername(userData.firstName || 'User');
+            setWalletBalance(userData.wallet_balance?.toFixed(2) || '0.00');
+
+            const driverUid = userData.creatorUid;
+            if (!driverUid) {
+              console.warn('No linked driver found.');
+              return;
+            }
+
+            const driverSnapshot = await database().ref(`/users/accounts/${driverUid}`).once('value');
             if (!driverSnapshot.exists()) {
               console.warn('Driver account not found.');
               return;
             }
-  
+
             const driverData = driverSnapshot.val();
             const jeepneyUid = driverData.jeep_assigned;
             if (!jeepneyUid) {
               console.warn('No jeepney assigned.');
               return;
             }
-  
+
             const today = new Date().toISOString().split('T')[0];
             jeepneyStatsRef = database().ref(`/jeepneys/${jeepneyUid}/dailyStats/${today}`);
-  
-            // ✅ Real-time listener for daily stats (total income and passengers)
+
+            // Listener for daily stats (total income and passengers)
             jeepneyStatsRef.on('value', (statsSnapshot) => {
               if (statsSnapshot.exists()) {
                 const statsData = statsSnapshot.val();
@@ -85,48 +78,44 @@ const HomeScreenConductor = () => {
                 setTotalIncome('0.00');
               }
             });
-  
-            // ✅ Fetch latest 5 transactions in real-time
+
+            // Fetch latest 2 transactions
             transactionsRef = database().ref(`users/accounts/${conductorUid}/transactions`);
             transactionsRef.on('value', (snapshot) => {
-              if (!snapshot.exists()) {
+              if (snapshot.exists()) {
+                const transactionData = snapshot.val();
+                const transactionList = Object.keys(transactionData).map((key) => ({
+                  id: key,
+                  ...transactionData[key],
+                }));
+
+                const latestTwoTransactions = transactionList
+                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                  .slice(0, 2);
+
+                setLatestTransactions(latestTwoTransactions);
+              } else {
                 setLatestTransactions([]);
-                return;
               }
-  
-              const transactionData = snapshot.val();
-              const transactionList = Object.keys(transactionData).map((key) => ({
-                id: key,
-                ...transactionData[key],
-              }));
-  
-              // ✅ Sort transactions by the most recent first
-              const latestTransactions = transactionList
-                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-                .slice(0, 5);
-  
-              setLatestTransactions(latestTransactions);
             });
-          });
+          } else {
+            console.warn('No user data found.');
+          }
         });
       } catch (error) {
         console.error('Error fetching user and stats:', error);
       }
     };
-  
+
     fetchUserAndStats();
-  
-    // ✅ Cleanup function to remove all listeners
+
     return () => {
-      if (userRef) userRef.off();
-      if (jeepneyStatsRef) jeepneyStatsRef.off();
-      if (transactionsRef) transactionsRef.off();
-      if (driverRef) driverRef.off();
+      if (userRef) userRef.off('value');
+      if (jeepneyStatsRef) jeepneyStatsRef.off('value');
+      if (transactionsRef) transactionsRef.off('value');
     };
   }, []);
-  
-  
-  
+
   const formatDate = (timestamp) => {
     if (!timestamp) return 'N/A';
     const date = new Date(timestamp);
@@ -179,58 +168,6 @@ const HomeScreenConductor = () => {
   };
 
 
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
-
-  useEffect(() => {
-    let userRef, notificationRef;
-
-    const fetchData = async () => {
-      try {
-        const currentUser = auth().currentUser;
-        if (!currentUser) {
-          console.warn('No user is currently logged in.');
-          return;
-        }
-
-        const uid = currentUser.uid;
-
-        // Listener for user details
-        userRef = database().ref(`users/accounts/${uid}`);
-        userRef.on('value', (userSnapshot) => {
-          if (userSnapshot.exists()) {
-            const userData = userSnapshot.val();
-            setUsername(userData.firstName || '');
-            setWalletBalance(userData.wallet_balance ? userData.wallet_balance.toFixed(2) : '0.00');
-          } else {
-            console.warn('No user data found.');
-          }
-        });
-
-        // Listener for unread notifications
-        notificationRef = database().ref(`notification_user/${uid}`);
-        notificationRef.on('value', (snapshot) => {
-          if (snapshot.exists()) {
-            const notifications = Object.values(snapshot.val());
-            const unreadCount = notifications.filter((notif) => notif.status === 'unread').length;
-            setUnreadNotifications(unreadCount);
-          } else {
-            setUnreadNotifications(0);
-          }
-        });
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      }
-    };
-
-    fetchData();
-
-    return () => {
-      if (userRef) userRef.off('value');
-      if (notificationRef) notificationRef.off('value');
-    };
-  }, []);
-
-  
   return (
     <View style={styles.container}>
       {/* Header Section */}
@@ -239,20 +176,7 @@ const HomeScreenConductor = () => {
           <Text style={styles.welcomeText}>
             Welcome! <Text style={styles.username}>@{username}</Text>
           </Text>
-          <TouchableOpacity
-              onPress={() => navigation.navigate('Notifications', { uid: auth().currentUser.uid })}
-            >
-              <View style={styles.notificationIconContainer}>
-                <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
-                {unreadNotifications > 0 && (
-                  <View style={styles.notificationDot}>
-                    <Text style={styles.notificationCount}>
-                      {unreadNotifications > 9 ? '9+' : unreadNotifications}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </TouchableOpacity>
+          <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
         </View>
         <View style={styles.walletSection}>
           <View style={styles.walletInfo}>
@@ -309,22 +233,11 @@ const HomeScreenConductor = () => {
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recent Transactions</Text>
         </View>
-
-        <View style={styles.transactionList}>
-  {latestTransactions.length > 0 ? (
-    <FlatList
-      data={latestTransactions}
-      keyExtractor={(item) => item.id}
-      renderItem={({ item }) => renderTransactionCard(item)}
-      style={{ maxHeight: 190 }} // Controls the scroll height inside the dashboard
-      showsVerticalScrollIndicator={false}
-      nestedScrollEnabled={true} // Fixes scroll inside ScrollView
-    />
-  ) : (
-    <Text style={styles.noTransactionsText}>No recent transactions available.</Text>
-  )}
-</View>
-
+        {latestTransactions.length > 0 ? (
+          latestTransactions.map((transaction) => renderTransactionCard(transaction))
+        ) : (
+          <Text style={styles.noTransactionsText}>No recent transactions available.</Text>
+        )}
       </ScrollView>
     </View>
   );
@@ -476,8 +389,8 @@ const styles = StyleSheet.create({
   },transactionCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
-    padding: 8,
-    marginBottom: 5,
+    padding: 16,
+    marginBottom: 10,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -521,26 +434,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#999',
     marginTop: 10,
-  },  notificationIconContainer: {
-    position: 'relative',
   },
-  notificationDot: {
-    position: 'absolute',
-    top: -5,
-    right: -5,
-    backgroundColor: '#FF0000',
-    borderRadius: 10,
-    width: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  notificationCount: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
- 
 });
 
 export default HomeScreenConductor;

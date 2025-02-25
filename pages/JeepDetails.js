@@ -9,30 +9,26 @@ const JeepDetailScreen = ({ route, navigation }) => {
   const [loading, setLoading] = useState(true); // Loading indicator
 
   useEffect(() => {
-    if (!jeepney || !jeepney.id) {
-      console.warn('No jeepney ID provided.');
-      setLoading(false);
-      return;
-    }
-
-    // Fetch and listen for driver details
-    const driverRef = database().ref(`users/accounts/${jeepney.id}`);
-
-    const onDriverValueChange = driverRef.on('value', (driverSnapshot) => {
-      if (driverSnapshot.exists()) {
-        const driverData = driverSnapshot.val();
-        const jeepAssignedUid = driverData.jeep_assigned; // Get assigned jeepney UID
-
-        if (!jeepAssignedUid) {
-          console.warn('No jeepney assigned to this driver.');
+    const fetchDetails = async () => {
+      try {
+        if (!jeepney || !jeepney.id) {
+          console.warn('No jeepney ID provided.');
           setLoading(false);
           return;
         }
 
-        // Fetch and listen for jeepney details
-        const jeepneyRef = database().ref(`jeepneys/${jeepAssignedUid}`);
+        // Fetch driver details from "users/accounts"
+        const driverRef = database().ref(`users/accounts/${jeepney.id}`);
+        const driverSnapshot = await driverRef.once('value');
 
-        const onJeepneyValueChange = jeepneyRef.on('value', (jeepneySnapshot) => {
+        if (driverSnapshot.exists()) {
+          const driverData = driverSnapshot.val();
+          const jeepAssignedUid = driverData.jeep_assigned; // Get assigned jeepney UID
+
+          // Fetch jeepney details from "jeepneys/{jeepAssignedUid}"
+          const jeepneyRef = database().ref(`jeepneys/${jeepAssignedUid}`);
+          const jeepneySnapshot = await jeepneyRef.once('value');
+
           if (jeepneySnapshot.exists()) {
             const jeepneyDetails = jeepneySnapshot.val();
 
@@ -42,22 +38,18 @@ const JeepDetailScreen = ({ route, navigation }) => {
             });
           } else {
             console.warn('Jeepney not found.');
-            setFullJeepDetails(null);
           }
-          setLoading(false);
-        });
-
-        // Cleanup jeepney listener when component unmounts
-        return () => jeepneyRef.off('value', onJeepneyValueChange);
-      } else {
-        console.warn('Driver not found.');
-        setFullJeepDetails(null);
+        } else {
+          console.warn('Driver not found.');
+        }
+      } catch (error) {
+        console.error('Error fetching details:', error);
+      } finally {
         setLoading(false);
       }
-    });
+    };
 
-    // Cleanup driver listener when component unmounts
-    return () => driverRef.off('value', onDriverValueChange);
+    fetchDetails();
   }, [jeepney]);
 
   return (
@@ -122,6 +114,7 @@ const JeepDetailScreen = ({ route, navigation }) => {
     </View>
   );
 };
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,

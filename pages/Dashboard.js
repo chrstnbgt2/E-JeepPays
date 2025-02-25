@@ -7,7 +7,6 @@ import {
   Image,
   ScrollView,
   ImageBackground,
-  FlatList 
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
@@ -26,89 +25,101 @@ const HomeScreen = () => {
   const [totalDistance, setTotalDistance] = useState(0);
 
   useEffect(() => {
-    let userRef, fareRef, transactionsRef, notificationRef;
-
+    let userRef, fareRef, tripsRef, transactionsRef;
+  
     const fetchData = async () => {
       try {
         const currentUser = auth().currentUser;
         if (!currentUser) {
-          console.warn("No user is currently logged in.");
+          console.warn('No user is currently logged in.');
           return;
         }
-
+  
         const uid = currentUser.uid;
+  
+        // Real-time listener for user details
         userRef = database().ref(`users/accounts/${uid}`);
-
-        userRef.on("value", (userSnapshot) => {
+        userRef.on('value', (userSnapshot) => {
           if (userSnapshot.exists()) {
             const userData = userSnapshot.val();
-            setUsername(userData.firstName || "");
-            setWalletBalance(
-              userData.wallet_balance ? userData.wallet_balance.toFixed(2) : "0.00"
-            );
-            const userAccountType = userData.acc_type || "Regular";
+            setUsername(userData.firstName || '');
+            setWalletBalance(userData.wallet_balance ? userData.wallet_balance.toFixed(2) : '0.00');
+            const userAccountType = userData.acc_type || 'Regular';
             setAccType(userAccountType);
-
+  
+            // Real-time listener for fare rate
             fareRef = database().ref(`fares/${userAccountType.toLowerCase()}/firstKm`);
-            fareRef.on("value", (fareSnapshot) => {
+            fareRef.on('value', (fareSnapshot) => {
               if (fareSnapshot.exists()) {
                 setFareRate(fareSnapshot.val().toFixed(2));
+              } else {
+                console.warn('No fare data found.');
               }
             });
+          } else {
+            console.warn('No user data found.');
           }
         });
-
-        // Fetch latest 5 transactions
+  
+        // Listener for trips
+        tripsRef = database().ref(`trips/${uid}`);
+        tripsRef.on('value', (snapshot) => {
+          if (snapshot.exists()) {
+            const tripData = snapshot.val();
+            const tripList = Object.keys(tripData).map((key) => ({
+              id: key,
+              ...tripData[key],
+            }));
+  
+            // Get the latest completed trip by timestamp
+            const latestCompletedTrip = tripList
+              .filter((trip) => trip.status === 'completed')
+              .sort((a, b) => b.timestamp - a.timestamp)[0]; // Sort descending by timestamp and get the first
+            setLatestTrip(latestCompletedTrip || null);
+          } else {
+            setLatestTrip(null);
+          }
+        });
+  
+        // Listener for transactions
         transactionsRef = database().ref(`users/accounts/${uid}/transactions`);
-        transactionsRef.on("value", (snapshot) => {
+        transactionsRef.on('value', (snapshot) => {
           if (snapshot.exists()) {
             const transactionData = snapshot.val();
             const transactionList = Object.keys(transactionData).map((key) => ({
               id: key,
               ...transactionData[key],
             }));
-
+  
+            // Get recent transactions (last 2)
             const recentTransactions = transactionList
               .sort((a, b) => b.createdAt - a.createdAt)
-              .slice(0, 5);
-
+              .slice(0, 2);
+  
             setTransactions(recentTransactions);
-
-            // Calculate total distance
-            const totalDistanceSum = transactionList
-              .filter((transaction) => transaction.type === "trip")
-              .reduce((sum, trip) => sum + (trip.distance || 0), 0);
-
-            setTotalDistance(totalDistanceSum.toFixed(2));
+  
+            // Sum all distances where `type` is `trip`
+            const tripTransactions = transactionList.filter((transaction) => transaction.type === 'trip');
+            const totalDistanceSum = tripTransactions.reduce((sum, trip) => sum + (trip.distance || 0), 0);
+  
+            setTotalDistance(totalDistanceSum.toFixed(2)); // Update total distance
           } else {
             setTransactions([]);
-            setTotalDistance(0);
-          }
-        });
-
-        // Unread notifications
-        notificationRef = database().ref(`notification_user/${uid}`);
-        notificationRef.on("value", (snapshot) => {
-          if (snapshot.exists()) {
-            const notifications = Object.values(snapshot.val());
-            const unreadCount = notifications.filter((notif) => notif.status === "unread").length;
-            setUnreadNotifications(unreadCount);
-          } else {
-            setUnreadNotifications(0);
+            setTotalDistance(0); // Reset total distance if no transactions
           }
         });
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error('Error fetching data:', error);
       }
     };
-
+  
     fetchData();
-
+  
     return () => {
-      if (userRef) userRef.off("value");
-      if (fareRef) fareRef.off("value");
-      if (transactionsRef) transactionsRef.off("value");
-      if (notificationRef) notificationRef.off("value");
+      if (userRef) userRef.off('value');
+      if (fareRef) fareRef.off('value');
+      if (tripsRef) tripsRef.off('value');
+      if (transactionsRef) transactionsRef.off('value');
     };
   }, []);
   
@@ -124,58 +135,6 @@ const HomeScreen = () => {
     });
   };
 
-
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
-
-  useEffect(() => {
-    let userRef, notificationRef;
-
-    const fetchData = async () => {
-      try {
-        const currentUser = auth().currentUser;
-        if (!currentUser) {
-          console.warn('No user is currently logged in.');
-          return;
-        }
-
-        const uid = currentUser.uid;
-
-        // Listener for user details
-        userRef = database().ref(`users/accounts/${uid}`);
-        userRef.on('value', (userSnapshot) => {
-          if (userSnapshot.exists()) {
-            const userData = userSnapshot.val();
-            setUsername(userData.firstName || '');
-            setWalletBalance(userData.wallet_balance ? userData.wallet_balance.toFixed(2) : '0.00');
-          } else {
-            console.warn('No user data found.');
-          }
-        });
-
-        // Listener for unread notifications
-        notificationRef = database().ref(`notification_user/${uid}`);
-        notificationRef.on('value', (snapshot) => {
-          if (snapshot.exists()) {
-            const notifications = Object.values(snapshot.val());
-            const unreadCount = notifications.filter((notif) => notif.status === 'unread').length;
-            setUnreadNotifications(unreadCount);
-          } else {
-            setUnreadNotifications(0);
-          }
-        });
-      } catch (error) {
-        console.error('Error fetching data:', error);
-      }
-    };
-
-    fetchData();
-
-    return () => {
-      if (userRef) userRef.off('value');
-      if (notificationRef) notificationRef.off('value');
-    };
-  }, []);
-  
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -183,21 +142,7 @@ const HomeScreen = () => {
           <Text style={styles.welcomeText}>
             Welcome! <Text style={styles.username}>@{username}</Text>
           </Text>
-                      <TouchableOpacity
-              onPress={() => navigation.navigate('Notifications', { uid: auth().currentUser.uid })}
-            >
-              <View style={styles.notificationIconContainer}>
-                <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
-                {unreadNotifications > 0 && (
-                  <View style={styles.notificationDot}>
-                    <Text style={styles.notificationCount}>
-                      {unreadNotifications > 9 ? '9+' : unreadNotifications}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </TouchableOpacity>
-
+          <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
         </View>
         <View style={styles.walletSection}>
           <View style={styles.walletInfo}>
@@ -256,39 +201,52 @@ const HomeScreen = () => {
         </View>
 
         <View style={styles.transactionList}>
-  {transactions.length > 0 ? (
-  <FlatList
-  data={transactions}
-  keyExtractor={(item, index) => item.id || index.toString()}
-  renderItem={({ item }) => (
-    <View style={styles.transactionCard}>
-      <View style={styles.transactionRow}>
-        {item.type === 'trip' ? (
-          <MaterialCommunityIcons name="map-marker-path" size={32} color="#466B66" style={styles.transactionIcon} />
-        ) : item.type === 'cash_in' ? (
-          <Ionicons name="cash-outline" size={32} color="#8FCB81" style={styles.transactionIcon} />
-        ) : (
-          <Ionicons name="help-circle-outline" size={32} color="#888" style={styles.transactionIcon} />
-        )}
-        <View style={styles.transactionDetails}>
-          <Text style={styles.transactionText}>
-            {item.type === 'trip' ? 'Trip Payment:' : item.type === 'cash_in' ? 'Cash-In:' : 'Other Transaction:'}{' '}
-            <Text style={styles.transactionAmount}>₱{(item.amount || 0).toFixed(2)}</Text>
-          </Text>
-          <Text style={styles.transactionDate}>{new Date(item.createdAt).toLocaleString()}</Text>
+  {transactions && transactions.length > 0 ? (
+    transactions.map((transaction, index) => (
+      <View key={transaction.id || index} style={styles.transactionCard}>
+        <View style={styles.transactionRow}>
+          {/* Render different icons based on transaction type */}
+          {transaction.type === 'trip' ? (
+            <MaterialCommunityIcons
+              name="map-marker-path"
+              size={32}
+              color="#466B66"
+              style={styles.transactionIcon}
+            />
+          ) : transaction.type === 'cash_in' ? (
+            <Ionicons
+              name="cash-outline"
+              size={32}
+              color="#8FCB81"
+              style={styles.transactionIcon}
+            />
+          ) : (
+            <Ionicons
+              name="help-circle-outline"
+              size={32}
+              color="#888"
+              style={styles.transactionIcon}
+            />
+          )}
+          <View style={styles.transactionDetails}>
+            <Text style={styles.transactionText}>
+              {transaction.type === 'trip'
+                ? 'Trip Payment:'
+                : transaction.type === 'cash_in'
+                ? 'Cash-In:'
+                : 'Other Transaction:'}{' '}
+              <Text style={styles.transactionAmount}>₱{(transaction.amount || 0).toFixed(2)}</Text>
+            </Text>
+            <Text style={styles.transactionDate}>{formatDate(transaction.createdAt)}</Text>
+          </View>
         </View>
       </View>
-    </View>
-  )}
-  style={{ maxHeight: 165 }} // Limit height for proper scrolling
-  showsVerticalScrollIndicator={false} 
-  nestedScrollEnabled={true} // Enable nested scrolling to avoid errors
-/>
-
+    ))
   ) : (
-    <Text style={styles.noTransactionsText}>No recent transactions.</Text>
+    <Text style={styles.noTransactionsText}>No recent transactions available.</Text>
   )}
 </View>
+
 
         
       </ScrollView>
@@ -406,7 +364,7 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   transactionList: {
-    marginTop: -25,
+    marginTop: 0,
   },
   transactionItem: {
     backgroundColor: '#FFFFFF',
@@ -462,25 +420,7 @@ const styles = StyleSheet.create({
     color: '#888',
     marginVertical: 10,
   },
-  notificationIconContainer: {
-    position: 'relative',
-  },
-  notificationDot: {
-    position: 'absolute',
-    top: -5,
-    right: -5,
-    backgroundColor: '#FF0000',
-    borderRadius: 10,
-    width: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  notificationCount: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: 'bold',
-  },
+  
 });
 
 export default HomeScreen;

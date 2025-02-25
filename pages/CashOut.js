@@ -12,10 +12,16 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import auth from '@react-native-firebase/auth';
 import database from '@react-native-firebase/database';
+import axios from 'axios';
+import { Buffer } from 'buffer';
+import { PAYMONGO_SECRET_KEY } from '@env';
+
+global.Buffer = Buffer;
 
 const CashOutScreen = () => {
   const navigation = useNavigation();
   const [amount, setAmount] = useState('');
+  const [selectedOption, setSelectedOption] = useState('');
   const [userUid, setUserUid] = useState('');
   const [currentBalance, setCurrentBalance] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -44,6 +50,11 @@ const CashOutScreen = () => {
   };
 
   const handleCashOut = async () => {
+    if (!selectedOption) {
+      Alert.alert('Select a Payment Option', 'Please choose a cash-out method.');
+      return;
+    }
+
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) {
       Alert.alert('Invalid Amount', 'Please enter a valid cash-out amount.');
       return;
@@ -57,10 +68,10 @@ const CashOutScreen = () => {
     setLoading(true);
 
     try {
-      // Process cash-out transaction with GCash
-      await createCashOutTransaction(Number(amount));
+      // Mock API call to create cash-out request
+      await createCashOutTransaction(selectedOption, Number(amount));
 
-      Alert.alert('Cash-Out Request Sent', `Your ₱${amount} cash-out request has been submitted via GCash.`);
+      Alert.alert('Cash-Out Request Sent', `Your ₱${amount} cash-out request has been submitted.`);
       navigation.goBack(); // Navigate back after success
     } catch (error) {
       Alert.alert('Error', 'Failed to process cash-out. Please try again.');
@@ -70,7 +81,7 @@ const CashOutScreen = () => {
     }
   };
 
-  const createCashOutTransaction = async (cashOutAmount) => {
+  const createCashOutTransaction = async (method, cashOutAmount) => {
     try {
       const userRef = database().ref(`users/accounts/${userUid}`);
 
@@ -82,25 +93,14 @@ const CashOutScreen = () => {
       const transactionData = {
         userUid,
         amount: cashOutAmount,
-        paymentMethod: 'GCash',
-        status: 'completed',
+        paymentMethod: method,
+        status: 'completed', 
         createdAt: new Date().toISOString(),
         type: 'cash_out',
       };
 
       await database().ref(`users/accounts/${userUid}/transactions`).push(transactionData);
-
-      const notificationData = {
-        userUid,
-        amount: cashOutAmount,
-        paymentMethod: 'GCash',
-        status: 'unread',
-        createdAt: new Date().toISOString(),
-        message: `Cashout Successful with an amount of ₱${cashOutAmount} via GCash`,
-        type: 'cash_out',
-      };
-
-      await database().ref(`/notification_user/${userUid}`).push(notificationData);
+      await database().ref('/transactions').push(transactionData); // Log globally
 
       console.log('Cash-out transaction logged:', transactionData);
     } catch (error) {
@@ -120,15 +120,19 @@ const CashOutScreen = () => {
 
       <Text style={styles.sectionTitle}>Available Balance: ₱{currentBalance.toFixed(2)}</Text>
 
-      <Text style={styles.sectionTitle}>Cash-Out Method</Text>
+      <Text style={styles.sectionTitle}>Select a Cash-Out Method</Text>
       <View style={styles.card}>
-        <TouchableOpacity
-          style={[styles.listItem, styles.selectedOption]}
-          disabled={true} // Disable selection since only GCash is available
-        >
-          <Text style={styles.listText}>GCash</Text>
-          <Ionicons name="checkmark-circle-outline" size={20} color="#00796B" />
-        </TouchableOpacity>
+        {['GCash', 'PayMaya', 'Bank Transfer'].map((option) => (
+          <TouchableOpacity
+            key={option}
+            style={[styles.listItem, selectedOption === option && styles.selectedOption]}
+            onPress={() => setSelectedOption(option)}
+            disabled={loading}
+          >
+            <Text style={styles.listText}>{option}</Text>
+            <Ionicons name="chevron-forward-outline" size={20} color="#000" />
+          </TouchableOpacity>
+        ))}
       </View>
 
       <Text style={styles.sectionTitle}>Enter Amount</Text>

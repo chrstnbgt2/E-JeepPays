@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
+  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
@@ -17,73 +18,61 @@ const RegisterScreen = () => {
   const [firstName, setFirstName] = useState('');
   const [middleName, setMiddleName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [errors, setErrors] = useState({});
 
   const handleNext = () => {
-    let newErrors = {};
-
-    if (!firstName.trim()) {
-      newErrors.firstName = 'First Name is required.';
+    if (!firstName || !lastName) {
+      Alert.alert('Error', 'First and Last Name are required.');
+      return;
     }
-    if (!lastName.trim()) {
-      newErrors.lastName = 'Last Name is required.';
-    }
-
-    setErrors(newErrors);
-
-    if (Object.keys(newErrors).length === 0) {
-      navigation.navigate('Next', { firstName, middleName, lastName });
-    }
-  };
-
-  const handleTextChange = (text, setFunction, field) => {
-    const filteredText = text.replace(/[^a-zA-Z ]/g, '');
-    setFunction(filteredText);
-    setErrors((prevErrors) => ({ ...prevErrors, [field]: '' }));
+    navigation.navigate('Next', { firstName, middleName, lastName });
   };
 
   return (
-    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        <Image source={require('../assets/images/top-curve.png')} style={styles.topCurve} resizeMode="cover" />
+        {/* Top Curve */}
+        <Image
+          source={require('../assets/images/top-curve.png')} // Replace with your actual top curve image path
+          style={styles.topCurve}
+          resizeMode="cover"
+        />
 
+        {/* Main Content */}
         <View style={styles.content}>
+          {/* Logo Section */}
           <View style={styles.logoContainer}>
-            <Image source={require('../assets/images/logo.png')} style={styles.logo} />
+            <Image
+              source={require('../assets/images/logo.png')} // Replace with your logo path
+              style={styles.logo}
+            />
             <Text style={styles.title}>REGISTER</Text>
           </View>
 
-          {/* First Name */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>First Name</Text>
-            <TextInput
-              style={styles.input}
-              value={firstName}
-              onChangeText={(text) => handleTextChange(text, setFirstName, 'firstName')}
-            />
-            {errors.firstName && <Text style={styles.errorText}>{errors.firstName}</Text>}
-          </View>
-
-          {/* Middle Name */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Middle Name (Optional)</Text>
-            <TextInput
-              style={styles.input}
-              value={middleName}
-              onChangeText={(text) => handleTextChange(text, setMiddleName, 'middleName')}
-            />
-          </View>
-
-          {/* Last Name */}
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Last Name</Text>
-            <TextInput
-              style={styles.input}
-              value={lastName}
-              onChangeText={(text) => handleTextChange(text, setLastName, 'lastName')}
-            />
-            {errors.lastName && <Text style={styles.errorText}>{errors.lastName}</Text>}
-          </View>
+          {/* Input Fields */}
+          <TextInput
+            placeholder="First Name"
+            placeholderTextColor="#9FA5AA"
+            style={styles.input}
+            value={firstName}
+            onChangeText={setFirstName}
+          />
+          <TextInput
+            placeholder="Middle Name (Optional)"
+            placeholderTextColor="#9FA5AA"
+            style={styles.input}
+            value={middleName}
+            onChangeText={setMiddleName}
+          />
+          <TextInput
+            placeholder="Last Name"
+            placeholderTextColor="#9FA5AA"
+            style={styles.input}
+            value={lastName}
+            onChangeText={setLastName}
+          />
 
           {/* Next Button */}
           <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
@@ -99,7 +88,12 @@ const RegisterScreen = () => {
           </Text>
         </View>
 
-        <Image source={require('../assets/images/bot-curve.png')} style={styles.bottomCurve} resizeMode="cover" />
+        {/* Bottom Curve */}
+        <Image
+          source={require('../assets/images/bot-curve.png')} // Replace with your actual bottom curve image path
+          style={styles.bottomCurve}
+          resizeMode="cover"
+        />
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -108,7 +102,7 @@ const RegisterScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#466B66',
+    backgroundColor: '#466B66', // Background color for the screen
   },
   scrollContent: {
     flexGrow: 1,
@@ -119,31 +113,28 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    height: 120,
+    height: 120, // Adjust this to match the height of your top PNG
     zIndex: 1,
-    width: '100%',
   },
   bottomCurve: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    height: 120,
+    height: 120, // Adjust this to match the height of your bottom PNG
     zIndex: 1,
-    width: '100%',
   },
   content: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 20,
-    marginTop: 150,
-    marginBottom: 150,
+    marginTop: 150, // Adjust based on the top curve height
+    marginBottom: 150, // Adjust based on the bottom curve height
   },
   logoContainer: {
-    marginTop: -50,
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 30,
   },
   logo: {
     width: 150,
@@ -153,16 +144,7 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#FFFFFF',
-    marginTop: 5,
-  },
-  inputContainer: {
-    width: '100%',
-    marginBottom: 10,
-  },
-  label: {
-    fontSize: 14,
-    color: '#FFFFFF',
-    marginBottom: 5,
+    marginTop: 10,
   },
   input: {
     width: '100%',
@@ -172,12 +154,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     fontSize: 16,
     color: '#000',
-  },
-  errorText: {
-    color: '#FF6B6B',
-    fontSize: 12,
-    marginTop: 3,
-    marginLeft: 5,
+    marginBottom: 15,
   },
   nextButton: {
     backgroundColor: '#8FCB81',
