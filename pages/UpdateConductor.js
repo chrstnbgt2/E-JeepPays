@@ -24,7 +24,7 @@ const EditConductor = ({ route }) => {
     lastName: account.lastName || '',
     email: account.email || '',
     phoneNumber: account.phoneNumber || '',
-    password: '', // Leave empty to detect changes
+    password: '', 
   });
 
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
@@ -34,54 +34,58 @@ const EditConductor = ({ route }) => {
     setForm({ ...form, [field]: value });
   };
 
-  const handleSave = async () => {
-    if (!form.firstName || !form.lastName || !form.email || !form.phoneNumber) {
-      alert('Please fill in all required fields.');
-      return;
-    }
+  // const handleSave = async () => {
+  //   if (!form.firstName || !form.lastName || !form.email || !form.phoneNumber) {
+  //     alert('Please fill in all required fields.');
+  //     return;
+  //   }
   
-    try {
-      const updates = {
-        firstName: form.firstName,
-        middleName: form.middleName,
-        lastName: form.lastName,
-        email: form.email,
-        phoneNumber: form.phoneNumber,
-      };
+  //   try {
+  //     const updates = {
+  //       firstName: form.firstName,
+  //       middleName: form.middleName,
+  //       lastName: form.lastName,
+  //       email: form.email,
+  //       phoneNumber: form.phoneNumber,
+  //     };
   
-      // If a new password is provided, update it in Firebase Auth
-      if (form.password.trim()) {
-        const user = await auth().currentUser;
-        await user.updatePassword(form.password);
-        console.log('Password updated successfully.');
-      }
+  //     // If a new password is provided, update it in Firebase Auth
+  //     if (form.password.trim()) {
+  //       const user = await auth().currentUser;
+  //       await user.updatePassword(form.password);
+  //       console.log('Password updated successfully.');
+  //     }
   
-      // Update the user's details in the Firebase Realtime Database
-      await database().ref(`users/accounts/${account.id}`).update(updates);
-      console.log('Account details updated successfully.');
+  //     // Update the user's details in the Firebase Realtime Database
+  //     await database().ref(`users/accounts/${account.id}`).update(updates);
+  //     console.log('Account details updated successfully.');
   
-      // Update the local state to reflect the latest changes
-      setForm((prevState) => ({
-        ...prevState,
-        ...updates,
-      }));
+  //     // Update the local state to reflect the latest changes
+  //     setForm((prevState) => ({
+  //       ...prevState,
+  //       ...updates,
+  //     }));
   
-      setSuccessModalVisible(true);
-    } catch (error) {
-      console.error('Error updating account:', error);
-      alert('Failed to update account. Please try again.');
-    }
-  };
+  //     setSuccessModalVisible(true);
+  //   } catch (error) {
+  //     console.error('Error updating account:', error);
+  //     alert('Failed to update account. Please try again.');
+  //   }
+  // };
   
   const handleDelete = async () => {
     try {
-      await database().ref(`users/accounts/${account.id}`).remove();
-      Alert.alert('Success', 'Account deleted successfully.');
+      await database().ref(`users/accounts/${account.id}`).update({
+        creatorUid:"unassigned", // Set to null
+        status:"Inactive"
+      });
+  
+      Alert.alert('Success', 'Conductor removed successfully.');
       setDeleteModalVisible(false);
       navigation.goBack();
     } catch (error) {
-      console.error('Error deleting account:', error);
-      Alert.alert('Error', 'Failed to delete the account. Please try again.');
+      console.error('Error updating creatorUid:', error);
+      Alert.alert('Error', 'Failed to remove  Conductor. Please try again later.');
     }
   };
 
@@ -94,70 +98,78 @@ const EditConductor = ({ route }) => {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Conductor</Text>
       </View>
-
+  
       {/* Form Content */}
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={styles.title}>Edit information</Text>
-
-        <TextInput
-          style={styles.input}
-          placeholder="First Name"
-          placeholderTextColor="#999"
-          value={form.firstName}
-          onChangeText={(text) => handleInputChange('firstName', text)}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Middle Name (Optional)"
-          placeholderTextColor="#999"
-          value={form.middleName}
-          onChangeText={(text) => handleInputChange('middleName', text)}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Last Name"
-          placeholderTextColor="#999"
-          value={form.lastName}
-          onChangeText={(text) => handleInputChange('lastName', text)}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Email"
-          placeholderTextColor="#999"
-          keyboardType="email-address"
-          value={form.email}
-          onChangeText={(text) => handleInputChange('email', text)}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="Phone Number"
-          placeholderTextColor="#999"
-          keyboardType="phone-pad"
-          value={form.phoneNumber}
-          onChangeText={(text) => handleInputChange('phoneNumber', text)}
-        />
-        <TextInput
-          style={styles.input}
-          placeholder="New Password (Optional)"
-          placeholderTextColor="#999"
-          secureTextEntry={true}
-          value={form.password}
-          onChangeText={(text) => handleInputChange('password', text)}
-        />
-
+        <Text style={styles.title}>View Information</Text>
+  
+        {/* First Name */}
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>First Name</Text>
+          <TextInput
+            style={styles.input}
+            value={form.firstName}
+            readOnly
+            onChangeText={(text) => handleInputChange('firstName', text)}
+          />
+        </View>
+  
+        {/* Middle Name */}
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Middle Name (Optional)</Text>
+          <TextInput
+            style={styles.input}
+            value={form.middleName}
+            readOnly
+            onChangeText={(text) => handleInputChange('middleName', text)}
+          />
+        </View>
+  
+        {/* Last Name */}
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Last Name</Text>
+          <TextInput
+            style={styles.input}
+            value={form.lastName}
+            readOnly
+            onChangeText={(text) => handleInputChange('lastName', text)}
+          />
+        </View>
+  
+        {/* Email */}
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Email</Text>
+          <TextInput
+            style={styles.input}
+            keyboardType="email-address"
+            value={form.email}
+            readOnly
+            onChangeText={(text) => handleInputChange('email', text)}
+          />
+        </View>
+  
+        {/* Phone Number */}
+        <View style={styles.inputContainer}>
+          <Text style={styles.label}>Phone Number</Text>
+          <TextInput
+            style={styles.input}
+            keyboardType="phone-pad"
+            value={form.phoneNumber}
+            readOnly
+            onChangeText={(text) => handleInputChange('phoneNumber', text)}
+          />
+        </View>
+  
         <View style={styles.buttonRow}>
-          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-            <Text style={styles.saveButtonText}>Save</Text>
-          </TouchableOpacity>
           <TouchableOpacity
             style={styles.deleteButton}
             onPress={() => setDeleteModalVisible(true)}
           >
-            <Text style={styles.deleteButtonText}>Delete account</Text>
+            <Text style={styles.deleteButtonText}>Remove Account</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
-
+  
       {/* Delete Modal */}
       <Modal
         visible={deleteModalVisible}
@@ -168,7 +180,7 @@ const EditConductor = ({ route }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <Text style={styles.modalTitle}>
-              Are you sure you want to delete this account?
+              Are you sure you want to remove this account?
             </Text>
             <View style={styles.modalButtonRow}>
               <TouchableOpacity
@@ -187,7 +199,7 @@ const EditConductor = ({ route }) => {
           </View>
         </View>
       </Modal>
-
+  
       {/* Success Modal */}
       <Modal
         visible={successModalVisible}
@@ -199,19 +211,20 @@ const EditConductor = ({ route }) => {
           <View style={styles.modalContainer}>
             <Text style={styles.modalTitle}>Successfully Updated</Text>
             <TouchableOpacity
-              style={styles.modalButton}
+              style={styles.modalButton2}
               onPress={() => {
                 setSuccessModalVisible(false);
-                navigation.goBack();
+                navigation.replace('ConductorList');
               }}
             >
-              <Text style={styles.modalButtonText}>OK</Text>
+              <Text style={styles.modalButtonText2}>OK</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
     </View>
   );
+  
 };
 
 const styles = StyleSheet.create({
@@ -317,13 +330,47 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginHorizontal: 5,
   },
+
+  modalButton2: {
+ 
+    backgroundColor: '#4CAF50',
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginHorizontal: 5,
+  },
   modalCancelButton: {
     backgroundColor: '#FF5252',
   },
   modalButtonText: {
-    color: '#FFF',
+    color: 'white',
+    fontSize: 20,
+    fontWeight: 'bold',
+    
+  },
+  modalButtonText2: {
+    color: 'black',
     fontSize: 16,
     fontWeight: 'bold',
+    padding:5,
+ 
+  }, inputContainer: {
+    marginBottom: 15,
+  },
+  label: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 5,
+  },
+  input: {
+    height: 45,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 5,
+    paddingHorizontal: 10,
+    fontSize: 16,
+    backgroundColor: '#f9f9f9', // Light gray background for read-only effect
   },
 });
 

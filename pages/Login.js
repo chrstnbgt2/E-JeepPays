@@ -18,6 +18,7 @@ import { useNavigation } from '@react-navigation/native';
 import auth from '@react-native-firebase/auth';
 import database from '@react-native-firebase/database';
 import { AuthContext } from '../context/AuthContext'; 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const LoginScreen = () => {
   const navigation = useNavigation();
@@ -30,6 +31,7 @@ const LoginScreen = () => {
   const [password, setPassword] = useState('');
   const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const { login } = useContext(AuthContext);  
 
   useEffect(() => {
     const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () =>
@@ -45,6 +47,10 @@ const LoginScreen = () => {
     };
   }, []);
 
+
+
+  
+
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert('Error', 'Please enter both email and password.');
@@ -57,41 +63,50 @@ const LoginScreen = () => {
       const userCredential = await auth().signInWithEmailAndPassword(email, password);
       const userId = userCredential.user.uid;
   
-      // Fetch user's details from Realtime Database
+      // ✅ Fetch user's details from Firebase
       const userSnapshot = await database().ref(`/users/accounts/${userId}`).once('value');
-      const userData = userSnapshot.val();
   
-      if (userData) {
-        const userRole = userData.role;
-        const userStatus = userData.status || 'active'; // Default to 'active' if status is not set
-  
-        // Only restrict the conductor role based on status
-        if (userRole === 'conductor') {
-          if (userStatus.toLowerCase() === 'inactive') {
-            Alert.alert('Account Deactivated', 'Your account is deactivated. Please contact support.');
-            await auth().signOut(); // Ensure user is logged out if login attempt succeeds
-            setIsLoading(false);
-            return; // Stop further execution
-          }
-        }
-  
-        // Allow login for active conductor or other roles
-        setAuthState({
-          isLoggedIn: true,
-          role: userRole,
-        });
-  
-      } else {
-        Alert.alert('Error', 'User role not found. Please contact support.');
+      if (!userSnapshot.exists()) {
+        Alert.alert('Error', 'User not found. Please contact support.');
+        await auth().signOut();
+        setIsLoading(false);
+        return;
       }
+  
+      const userData = userSnapshot.val();
+      const userRole = userData.role || 'user';
+      const userStatus = userData.status || 'active';
+  
+      // ✅ Restrict login for inactive conductors
+      // if (userRole === 'conductor' && userStatus.toLowerCase() === 'inactive') {
+      //   Alert.alert('Account Deactivated', 'Your account is deactivated. Please contact support.');
+      //   await auth().signOut();
+      //   setIsLoading(false);
+      //   return;
+      // }
+  
+      // ✅ Store user session in AsyncStorage for persistence
+      await AsyncStorage.setItem(
+        'userData',
+        JSON.stringify({ uid: userId, role: userRole, status: userStatus })
+      );
+  
+      // ✅ Use `login()` from AuthContext
+      login({ uid: userId, role: userRole });
+  
     } catch (error) {
-      Alert.alert('Error', 'Login failed. Please try again.');
-      console.error('Login error:', error);
+      console.error('❌ Login error:', error);
+  
+      let errorMessage = 'Login failed. Please try again.';
+      if (error.code === 'auth/user-not-found') errorMessage = 'No account found with this email.';
+      if (error.code === 'auth/wrong-password') errorMessage = 'Incorrect password. Please try again.';
+      if (error.code === 'auth/too-many-requests') errorMessage = 'Too many failed attempts. Try again later.';
+  
+      Alert.alert('Error', errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
-  
   
 
   const togglePasswordVisibility = () => {
@@ -215,6 +230,7 @@ const styles = StyleSheet.create({
     right: 0,
     height: 120,
     zIndex: 1,
+    width:'100%',
   },
   content: {
     flex: 1,
@@ -288,6 +304,7 @@ const styles = StyleSheet.create({
     right: 0,
     height: 120,
     zIndex: 1,
+    width:'100%',
   },
 });
 

@@ -1,7 +1,7 @@
-import React, { createContext, useState, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import auth from '@react-native-firebase/auth';
-import database from '@react-native-firebase/database';
+import React, { createContext, useState, useEffect } from "react";
+import auth from "@react-native-firebase/auth";
+import database from "@react-native-firebase/database";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export const AuthContext = createContext();
 
@@ -10,61 +10,101 @@ export const AuthProvider = ({ children }) => {
   const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // ✅ Load user session when app starts
   useEffect(() => {
-    const checkLoginStatus = async () => {
+    const loadUser = async () => {
       try {
-        const user = auth().currentUser;
-
-        if (user) {
-          const cachedRole = await AsyncStorage.getItem('userRole');
-          if (cachedRole) {
-            setRole(cachedRole);
-            setIsLoggedIn(true);
-          } else {
-            const roleSnapshot = await database()
-              .ref(`/users/passengers/${user.uid}/role`)
-              .once('value');
-            const userRole = roleSnapshot.val();
-
-            if (userRole) {
-              await AsyncStorage.setItem('userRole', userRole);
-              setRole(userRole);
-              setIsLoggedIn(true);
-            }
-          }
+        setLoading(true);
+        
+        // Check stored user session
+        const storedUser = await AsyncStorage.getItem("userData");
+        if (storedUser) {
+          const user = JSON.parse(storedUser);
+          setIsLoggedIn(true);
+          setRole(user.role);
         }
       } catch (error) {
-        console.error('Error checking login status:', error);
+        console.error("❌ Error loading user data:", error);
       } finally {
         setLoading(false);
       }
     };
 
-    checkLoginStatus();
+    loadUser();
+
+    // ✅ Track Firebase Authentication Changes in Real-Time
+    const unsubscribe = auth().onAuthStateChanged(async (user) => {
+      if (user) {
+        console.log("✅ User logged in:", user.uid);
+        await fetchUserRole(user.uid); // Fetch role in real-time
+      } else {
+        console.log("❌ User logged out");
+        setIsLoggedIn(false);
+        setRole(null);
+        await AsyncStorage.removeItem("userData");
+      }
+    });
+
+    return () => unsubscribe(); // Cleanup listener
   }, []);
 
-  const setAuthState = (authState) => {
-    setIsLoggedIn(authState.isLoggedIn);
-    setRole(authState.role);
-  };
-
-  const logOut = async () => {
-    setLoading(true);
+  // ✅ Fetch User Role from Firebase
+  const fetchUserRole = async (userId) => {
     try {
-      await auth().signOut();
-      await AsyncStorage.removeItem('userRole');
-      setIsLoggedIn(false);
-      setRole(null);
+      const snapshot = await database().ref(`users/accounts/${userId}`).once("value");
+      if (snapshot.exists()) {
+        const userData = snapshot.val();
+        setRole(userData.role || "user");
+
+        // ✅ Store in AsyncStorage for Faster Reload
+        await AsyncStorage.setItem("userData", JSON.stringify({ role: userData.role }));
+      } else {
+        console.warn("⚠️ No role found for user");
+        setRole("user");
+      }
     } catch (error) {
-      console.error('Error during logout:', error);
-    } finally {
-      setLoading(false);
+      console.error("❌ Error fetching user role:", error);
+      setRole("user");
     }
   };
 
+  // ✅ Login function
+  const login = async (user) => {
+    try {
+      await AsyncStorage.setItem("userData", JSON.stringify(user));
+      setIsLoggedIn(true);
+      setRole(user.role);
+    } catch (error) {
+      console.error("❌ Error saving login data:", error);
+    }
+  };
+
+  // ✅ Logout function
+  const logout = async (navigation) => {
+    try {
+      await auth().signOut();
+      await AsyncStorage.removeItem("userData");
+      setIsLoggedIn(false);
+      setRole(null);
+  
+      console.log("✅ Logged out successfully");
+  
+      // ✅ Ensure Navigation to Login Screen
+      if (navigation) {
+        navigation.reset({
+          index: 0,
+          routes: [{ name: "Auth" }], // Make sure "Auth" is your login stack screen
+        });
+      }
+    } catch (error) {
+      console.error("❌ Error during logout:", error);
+    }
+  };
+  
+
   return (
-    <AuthContext.Provider value={{ isLoggedIn, role, loading, logOut, setAuthState }}>
-    {children}
-  </AuthContext.Provider>
+    <AuthContext.Provider value={{ isLoggedIn, role, login, logout, loading }}>
+      {children}
+    </AuthContext.Provider>
   );
 };

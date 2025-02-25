@@ -36,6 +36,10 @@ import DisplayAllQR_Conductor from './pages/AllQrCode';
 import WebViewScreen from './pages/WebViewScreen';
 import CashOutScreen from './pages/CashOut';
 import TransferScreen from './pages/Transfer';
+import NotificationScreen from './pages/NotificationScreen';
+import SettingsScreen from './pages/SettingsScreen';
+import AddConductorExisting from './pages/AddConductorExisting';
+
 
 // Navigators
 const AuthStack = createStackNavigator();
@@ -188,6 +192,9 @@ const App = () => {
         <RootStack.Screen name="WebViewScreen" component={WebViewScreen} />
         <RootStack.Screen name="Cashout" component={CashOutScreen} />
         <RootStack.Screen name="Transfer" component={TransferScreen} />
+        <RootStack.Screen name="Notifications" component={NotificationScreen} />
+        <RootStack.Screen name="Settings" component={SettingsScreen} />
+        <RootStack.Screen name="AddExisting" component={AddConductorExisting} />
 
       </RootStack.Navigator>
     </NavigationContainer>

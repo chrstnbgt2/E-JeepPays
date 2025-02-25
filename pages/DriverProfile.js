@@ -11,31 +11,51 @@ import auth from '@react-native-firebase/auth';
 
 const ProfileScreenDriver = () => {
   const navigation = useNavigation();
-   const { logOut } = useContext(AuthContext);  
-   const { stopLocationTracking } = useContext(DriverLocationContext);
-    // Logout function
-    const handleLogout = async () => {
-      try {
-        const driverUid = auth().currentUser?.uid;
-  
-        if (driverUid) {
-          // Remove driver's location from Firebase
-          await database().ref(`jeep_loc/${driverUid}`).remove();
+  const { logout } = useContext(AuthContext); 
+  const { stopLocationTracking } = useContext(DriverLocationContext);
+
+  const handleLogout = () => {
+    Alert.alert(
+      "Log Out",
+      "Are you sure you want to log out?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Yes", 
+          onPress: async () => {
+            try {
+              const driverUid = auth().currentUser?.uid;
+
+              if (driverUid) {
+                // ✅ Remove driver's location from Firebase
+                await database().ref(`jeep_loc/${driverUid}`).remove();
+                console.log("🗑️ Driver location removed from Firebase");
+              }
+
+              // ✅ Stop location tracking
+              stopLocationTracking();
+
+              // ✅ Call logout function
+              await logout();
+              console.log('✅ Driver successfully logged out');
+
+              // ✅ Reset navigation stack & go to login screen
+              navigation.reset({
+                index: 0,
+                routes: [{ name: "Auth" }], // Ensure this screen name matches your AuthNavigator
+              });
+            } catch (error) {
+              console.error('❌ Error signing out:', error);
+              Alert.alert("Error", "An error occurred while signing out.");
+            }
+          } 
         }
-  
-        // Stop location tracking
-        stopLocationTracking();
-  
-        await logOut();
-        Alert.alert('Success', 'You have been logged out.');
-        navigation.navigate('Login');
-      } catch (error) {
-        console.error('Error signing out:', error);
-        Alert.alert('Error', 'An error occurred while signing out.');
-      }
-    };
-  
-    
+      ],
+      { cancelable: true }
+    );
+  };
+
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -49,29 +69,29 @@ const ProfileScreenDriver = () => {
         <Text style={styles.menuText}>Account Information</Text>
         <Ionicons name="chevron-forward-outline" size={20} color="#000" />
       </TouchableOpacity>
-      <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('ConductorList')} >
+      
+      <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('ConductorList')}>
         <MaterialCommunity name="account" size={24} color="#000" />
         <Text style={styles.menuText}>My Conductor</Text>
         <Ionicons name="chevron-forward-outline" size={20} color="#000" />
       </TouchableOpacity>
-      <TouchableOpacity style={styles.menuItem}>
+      
+      <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('TermsAndConditions')}>
         <Ionicons name="pricetags-outline" size={24} color="#000" />
         <Text style={styles.menuText}>Terms and Conditions</Text>
         <Ionicons name="chevron-forward-outline" size={20} color="#000" />
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.menuItem}>
+      <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Settings')}>
         <Ionicons name="settings-outline" size={24} color="#000" />
         <Text style={styles.menuText}>Settings</Text>
         <Ionicons name="chevron-forward-outline" size={20} color="#000" />
       </TouchableOpacity>
 
       {/* Logout Button */}
-         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-             <Text style={styles.logoutText}>Log out</Text>
-         </TouchableOpacity>
-
-   
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <Text style={styles.logoutText}>Log out</Text>
+      </TouchableOpacity>
     </View>
   );
 };
@@ -125,37 +145,9 @@ const styles = StyleSheet.create({
     left: 20,  
     right: 20,  
   },
-  
   logoutText: {
     color: '#FFF',
     fontSize: 16,
-    fontWeight: 'bold',
-  },
-  bottomNav: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: '#466B66',
-    height: 70,
-    borderTopLeftRadius: 15,
-    borderTopRightRadius: 15,
-    marginTop: 'auto',
-  },
-  navItem: {
-    alignItems: 'center',
-  },
-  activeNavItem: {
-    alignItems: 'center',
-  },
-  navText: {
-    fontSize: 12,
-    color: '#FFFFFF',
-    marginTop: 5,
-  },
-  activeNavText: {
-    fontSize: 12,
-    color: '#8FCB81',
-    marginTop: 5,
     fontWeight: 'bold',
   },
 });

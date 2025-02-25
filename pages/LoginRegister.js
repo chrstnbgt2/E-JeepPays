@@ -2,6 +2,8 @@ import React from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, Image } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 
+
+
 const LoginRegister = () => {
   const navigation = useNavigation();
 
@@ -9,7 +11,7 @@ const LoginRegister = () => {
     <View style={styles.container}>
       {/* Top Curve as an Image */}
       <Image
-        source={require('../assets/images/top-curve.png')} // Replace with the correct path to your top-curve.png
+        source={require('../assets/images/top-curve.png')}  
         style={styles.topCurve}
         resizeMode="cover"
       />
@@ -19,7 +21,7 @@ const LoginRegister = () => {
         {/* Logo and App Name */}
         <View style={styles.logoContainer}>
           <Image
-            source={require('../assets/images/logo.png')} // Replace with the correct path to your logo
+            source={require('../assets/images/logo.png')}  
             style={styles.logo}
           />
           <Text style={styles.title}>eJeepPay</Text>
@@ -43,7 +45,7 @@ const LoginRegister = () => {
 
       {/* Bottom Curve as an Image */}
       <Image
-        source={require('../assets/images/bot-curve.png')} // Replace with the correct path to your bot-curve.png
+        source={require('../assets/images/bot-curve.png')} 
         style={styles.bottomCurve}
         resizeMode="cover"
       />
@@ -54,7 +56,7 @@ const LoginRegister = () => {
 const styles = StyleSheet.create({
     container: {
       flex: 1,
-      backgroundColor: '#466B66', // Dark background outside green container
+      backgroundColor: '#466B66', 
       justifyContent: 'center',
       alignItems: 'center',
     },
@@ -63,14 +65,14 @@ const styles = StyleSheet.create({
       top: 0,
       left: 0,
       right: 0,
-      height: 120, // Adjust to match your image height
+      height: 120,  
       zIndex: 1,
       width:'100%',
     },
     greenContainer: {
       width: '100%',
-      height: '80%', // Adjust height as needed
-      backgroundColor: '#466B66', // Green background
+      height: '80%',  
+      backgroundColor: '#466B66',  
       borderTopLeftRadius: 50,
       borderTopRightRadius: 50,
       borderBottomLeftRadius: 50,
@@ -140,7 +142,7 @@ const styles = StyleSheet.create({
       bottom: 0,
       left: 0,
       right: 0,
-      height: 120, // Adjust to match your image height
+      height: 120, 
       zIndex: 1,
     },
   });
