@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   StyleSheet,
   View,
@@ -9,13 +9,14 @@ import {
   KeyboardAvoidingView,
   ScrollView,
   Platform,
-  Alert,
   ActivityIndicator,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import auth from '@react-native-firebase/auth';
 import database from '@react-native-firebase/database';
+import Ionicons from 'react-native-vector-icons/Ionicons';
 
+ 
 const RegisterScreen2 = () => {
   const navigation = useNavigation();
   const route = useRoute();
@@ -24,44 +25,56 @@ const RegisterScreen2 = () => {
   const [phoneNumber, setPhoneNumber] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [errors, setErrors] = useState({});
 
-  // Sanitize input to remove harmful characters
   const sanitizeInput = (input) => input.replace(/[<>]/g, '');
 
-  // Validate user inputs
+  // Real-time validation for confirm password
+  useEffect(() => {
+    if (confirmPassword.length > 0 && password !== confirmPassword) {
+      setErrors((prev) => ({ ...prev, confirmPassword: 'Passwords do not match.' }));
+    } else {
+      setErrors((prev) => {
+        const { confirmPassword, ...rest } = prev;
+        return rest;
+      });
+    }
+  }, [password, confirmPassword]);
+
   const validateInputs = () => {
+    let errors = {};
+
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const phoneRegex = /^[0-9]{10,15}$/; // Adjust for your region
+    const phoneRegex = /^[0-9]{10,15}$/;
     const passwordRegex = /^(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*])[A-Za-z\d!@#$%^&*]{6,}$/;
 
     if (!phoneRegex.test(phoneNumber)) {
-      Alert.alert(
-        'Invalid Phone Number',
-        'Phone number must contain only digits and be between 10 and 15 characters long.'
-      );
-      return false;
+      errors.phoneNumber = 'Phone number must contain only digits (10-15 characters).';
     }
 
     if (!emailRegex.test(email)) {
-      Alert.alert('Invalid Email', 'Please enter a valid email address.');
-      return false;
+      errors.email = 'Enter a valid email address.';
     }
 
     if (!passwordRegex.test(password)) {
-      Alert.alert(
-        'Weak Password',
-        'Password must be at least 6 characters long and include at least 1 uppercase letter, 1 number, and 1 special character.'
-      );
-      return false;
+      errors.password = 'Password must be at least 6 characters, with 1 uppercase, 1 number, and 1 special character.';
     }
 
-    return true;
+    if (password !== confirmPassword) {
+      errors.confirmPassword = 'Passwords do not match.';
+    }
+
+    setErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleRegister = async () => {
-    if (!firstName || !lastName || !phoneNumber || !email || !password) {
-      Alert.alert('Error', 'All fields are required except Middle Name.');
+    if (!firstName || !lastName || !phoneNumber || !email || !password || !confirmPassword) {
+      setErrors({ general: 'All fields are required except Middle Name.' });
       return;
     }
 
@@ -71,10 +84,7 @@ const RegisterScreen2 = () => {
 
     setLoading(true);
     try {
-      // Create the user with Firebase Authentication
       const userCredential = await auth().createUserWithEmailAndPassword(email, password);
-
-      // Save additional user data to Realtime Database
       const userId = userCredential.user.uid;
 
       await database().ref(`/users/accounts/${userId}`).set({
@@ -83,202 +93,109 @@ const RegisterScreen2 = () => {
         lastName: sanitizeInput(lastName),
         phoneNumber: sanitizeInput(phoneNumber),
         email: sanitizeInput(email),
-        role: 'user', // Defined role
-        wallet_balance: 0, // Initial wallet balance
-        acc_type:'Regular',
-        createdAt: new Date().toISOString(), // Save timestamp
+        role: 'user',
+        wallet_balance: 0,
+        acc_type: 'Regular',
+        createdAt: new Date().toISOString(),
       });
 
-      Alert.alert('Success', 'Account created successfully!');
       navigation.navigate('Login');
     } catch (error) {
-      switch (error.code) {
-        case 'auth/email-already-in-use':
-          Alert.alert(
-            'Email Already in Use',
-            'The email address is already registered. Please log in or use a different email.'
-          );
-          break;
-        case 'auth/invalid-email':
-          Alert.alert('Invalid Email', 'The email address is invalid. Please try again.');
-          break;
-        case 'auth/weak-password':
-          Alert.alert('Weak Password', 'Password must be at least 6 characters.');
-          break;
-        default:
-          console.error('Error during registration:', error);
-          Alert.alert('Error', 'An unexpected error occurred. Please try again.');
-      }
+      let errorMessage = 'An unexpected error occurred. Please try again.';
+      if (error.code === 'auth/email-already-in-use') errorMessage = 'Email is already registered.';
+      if (error.code === 'auth/invalid-email') errorMessage = 'Invalid email address.';
+      if (error.code === 'auth/weak-password') errorMessage = 'Weak password.';
+      setErrors({ general: errorMessage });
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
+    <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Top Curve */}
-        <Image
-          source={require('../assets/images/top-curve.png')}
-          style={styles.topCurve}
-          resizeMode="cover"
-        />
+        <Image source={require('../assets/images/top-curve.png')} style={styles.topCurve} resizeMode="cover" />
 
-        {/* Main Content */}
         <View style={styles.content}>
-          {/* Logo Section */}
           <View style={styles.logoContainer}>
-            <Image
-              source={require('../assets/images/logo.png')}
-              style={styles.logo}
-            />
+            <Image source={require('../assets/images/logo.png')} style={styles.logo} />
             <Text style={styles.title}>REGISTER</Text>
           </View>
 
-          {/* Input Fields */}
+          {errors.general && <Text style={styles.errorText}>{errors.general}</Text>}
+
+          <Text style={styles.label}>Phone Number</Text>
           <TextInput
-            placeholder="Phone Number"
-            placeholderTextColor="#9FA5AA"
             style={styles.input}
             keyboardType="phone-pad"
             value={phoneNumber}
             onChangeText={setPhoneNumber}
           />
+          {errors.phoneNumber && <Text style={styles.errorText}>{errors.phoneNumber}</Text>}
+
+          <Text style={styles.label}>Email</Text>
           <TextInput
-            placeholder="Email"
-            placeholderTextColor="#9FA5AA"
             style={styles.input}
             keyboardType="email-address"
             value={email}
             onChangeText={setEmail}
           />
-          <TextInput
-            placeholder="Password"
-            placeholderTextColor="#9FA5AA"
-            style={styles.input}
-            secureTextEntry
-            value={password}
-            onChangeText={setPassword}
-          />
+          {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
 
-          {/* Register Button */}
-          <TouchableOpacity
-            style={[styles.registerButton, loading && styles.disabledButton]}
-            onPress={handleRegister}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="#FFF" />
-            ) : (
-              <Text style={styles.registerButtonText}>Register</Text>
-            )}
+          <Text style={styles.label}>Password</Text>
+          <View style={styles.passwordContainer}>
+            <TextInput
+              style={styles.passwordInput}
+              secureTextEntry={!showPassword}
+              value={password}
+              onChangeText={setPassword}
+            />
+            <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+              <Ionicons name={showPassword ? 'eye' : 'eye-off'} size={24} color="#9FA5AA" />
+            </TouchableOpacity>
+          </View>
+          {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+
+          <Text style={styles.label}>Confirm Password</Text>
+          <View style={styles.passwordContainer}>
+            <TextInput
+              style={styles.passwordInput}
+              secureTextEntry={!showConfirmPassword}
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+            />
+            <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+              <Ionicons name={showConfirmPassword ? 'eye' : 'eye-off'} size={24} color="#9FA5AA" />
+            </TouchableOpacity>
+          </View>
+          {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
+
+          <TouchableOpacity style={[styles.registerButton, loading && styles.disabledButton]} onPress={handleRegister} disabled={loading}>
+            {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.registerButtonText}>Register</Text>}
           </TouchableOpacity>
-
-          {/* Login Link */}
-          <Text style={styles.loginText}>
-            Already have an account?{' '}
-            <Text style={styles.loginLink} onPress={() => navigation.navigate('Login')}>
-              Login
-            </Text>
-          </Text>
         </View>
 
-        {/* Bottom Curve */}
-        <Image
-          source={require('../assets/images/bot-curve.png')}
-          style={styles.bottomCurve}
-          resizeMode="cover"
-        />
+        <Image source={require('../assets/images/bot-curve.png')} style={styles.bottomCurve} resizeMode="cover" />
       </ScrollView>
     </KeyboardAvoidingView>
   );
 };
 
+ 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#466B66',
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-  },
-  topCurve: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 120,
-    zIndex: 1,
-  },
-  bottomCurve: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 120,
-    zIndex: 1,
-  },
-  content: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: 20,
-    marginTop: 150,
-    marginBottom: 150,
-  },
-  logoContainer: {
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  logo: {
-    width: 150,
-    height: 150,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginTop: 10,
-  },
-  input: {
-    width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 25,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    fontSize: 16,
-    color: '#000',
-    marginBottom: 15,
-  },
-  registerButton: {
-    backgroundColor: '#8FCB81',
-    paddingVertical: 15,
-    width: '100%',
-    borderRadius: 25,
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  disabledButton: {
-    backgroundColor: '#A5D6A7',
-  },
-  registerButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  loginText: {
-    marginTop: 20,
-    color: '#FFFFFF',
-    fontSize: 14,
-  },
-  loginLink: {
-    color: '#8FCB81',
-    textDecorationLine: 'underline',
-  },
+  container: { flex: 1, backgroundColor: '#466B66' },
+  scrollContent: { flexGrow: 1, justifyContent: 'center' },
+  topCurve: { position: 'absolute', top: 0, width: '100%', height: 120 },
+  bottomCurve: { position: 'absolute', bottom: 0, width: '100%', height: 120 },
+  content: { alignItems: 'center', padding: 20 },
+  logo: { width: 150, height: 150 },
+  title: { fontSize: 24, fontWeight: 'bold', color: '#FFF', marginBottom: 10 },
+  label: { color: '#FFF', alignSelf: 'flex-start', marginBottom: 5 },
+  input: { width: '100%', backgroundColor: '#FFF', borderRadius: 25, padding: 10, fontSize: 16, marginBottom: 5 },
+  passwordContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF', borderRadius: 25, paddingHorizontal: 10, marginBottom: 5 },
+  passwordInput: { flex: 1, paddingVertical: 10, fontSize: 16, color: '#000' },
+  errorText: { color: '#FF6B6B', alignSelf: 'flex-start', marginBottom: 5 },
+  registerButton: { backgroundColor: '#8FCB81', padding: 15, borderRadius: 25, width: '100%', alignItems: 'center', marginTop: 20 },
 });
 
 export default RegisterScreen2;

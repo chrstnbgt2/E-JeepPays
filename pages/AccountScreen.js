@@ -55,7 +55,7 @@ const AccountScreen = () => {
               city: userData.city || '',
               state: userData.state || '',
               zip: userData.zip || '',
-              phone: userData.phoneNumber || '',
+              phone: userData.phone || '',
               email: userData.email || '',
             });
             setSelectedGender(userData.gender || '');
@@ -299,6 +299,7 @@ const AccountScreen = () => {
             placeholderTextColor="#000"
             value={formData.email}
             onChangeText={(text) => handleInputChange('email', text)}
+            readOnly
           />
         </View>
 

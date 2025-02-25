@@ -1,24 +1,42 @@
 import { useNavigation } from '@react-navigation/native';
 import React, { useContext } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Alert } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunity from 'react-native-vector-icons/MaterialCommunityIcons';
 import { AuthContext } from '../context/AuthContext'; 
 
-
 const ProfileScreenConductor = () => {
-    const navigation = useNavigation();
-   const { logOut } = useContext(AuthContext);  
-  
-    
-  // Logout function
-  const handleLogout = async () => {
-    try {
-      await logOut();  
-      console.log('User signed out');
-    } catch (error) {
-      console.error('Error signing out:', error);  
-    }
+  const navigation = useNavigation();
+  const { logout } = useContext(AuthContext); // ✅ Use 'logout' (not logOut)
+
+  // ✅ Logout function with confirmation
+  const handleLogout = () => {
+    Alert.alert(
+      "Log Out",
+      "Are you sure you want to log out?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Yes", 
+          onPress: async () => {
+            try {
+              await logout(); // ✅ Call the correct function
+              console.log('✅ Conductor successfully logged out');
+
+              // ✅ Reset navigation stack & go to login screen
+              navigation.reset({
+                index: 0,
+                routes: [{ name: "Auth" }], // Ensure this screen name matches your AuthNavigator
+              });
+            } catch (error) {
+              console.error('❌ Error signing out:', error);
+              Alert.alert("Error", "An error occurred while signing out.");
+            }
+          } 
+        }
+      ],
+      { cancelable: true }
+    );
   };
 
   return (
@@ -29,8 +47,8 @@ const ProfileScreenConductor = () => {
       </View>
 
       {/* Menu Items */}
-      <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('AccountInformation')} >
-        <Ionicons name="person-circle-outline" size={24} color="#000"   />
+      <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('AccountInformation')}>
+        <Ionicons name="person-circle-outline" size={24} color="#000" />
         <Text style={styles.menuText}>Account Information</Text>
         <Ionicons name="chevron-forward-outline" size={20} color="#000" />
       </TouchableOpacity>
@@ -41,18 +59,16 @@ const ProfileScreenConductor = () => {
         <Ionicons name="chevron-forward-outline" size={20} color="#000" />
       </TouchableOpacity>
 
-      <TouchableOpacity style={styles.menuItem}>
+      <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Settings')}>
         <Ionicons name="settings-outline" size={24} color="#000" />
         <Text style={styles.menuText}>Settings</Text>
         <Ionicons name="chevron-forward-outline" size={20} color="#000" />
       </TouchableOpacity>
 
-        {/* Logout Button */}
-           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-               <Text style={styles.logoutText}>Log out</Text>
-           </TouchableOpacity>
-  
-   
+      {/* Logout Button */}
+      <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <Text style={styles.logoutText}>Log out</Text>
+      </TouchableOpacity>
     </View>
   );
 };

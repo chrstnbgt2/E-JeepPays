@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator, Modal } from 'react-native';
 import { Camera, useCameraDevice, useCameraPermission, useCodeScanner } from 'react-native-vision-camera';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { launchImageLibrary } from 'react-native-image-picker';
 import RNQRGenerator from 'rn-qr-generator';
 import database from '@react-native-firebase/database';
@@ -15,6 +15,7 @@ import { MAPBOX_ACCESS_TOKEN } from '@env';
 const MAX_FILE_SIZE_MB = 5;
 const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png'];
 
+
 const QRCodeScannerScreen = () => {
   const navigation = useNavigation();
   const device = useCameraDevice('back');
@@ -23,6 +24,124 @@ const QRCodeScannerScreen = () => {
   const [lastScannedTime, setLastScannedTime] = useState(0);
   const scanInterval = 2000;
   const [locationError, setLocationError] = useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+    const [passengerType, setPassengerType] = useState(null);
+ const [qrValue, setQrValue] = useState('');
+ const [jeepneyStatus, setJeepneyStatus] = useState(null);
+ const [userStatus, setUserStatus] = useState('active'); // Tracks if the user is active or inactive
+ const [inactiveModalVisible, setInactiveModalVisible] = useState(false); // Controls the undismissable modal
+
+ // ✅ Function to check user login status
+ 
+ useFocusEffect(
+  useCallback(() => {
+    const resetState = () => {
+      setUserStatus(null); // ✅ Reset status
+      setIsScanning(false); // ✅ Stop scanning
+    };
+
+    resetState(); // Ensure state resets before checking user status
+
+    const checkUserStatus = async () => {
+      try {
+        const currentUser = auth().currentUser;
+        if (!currentUser) return;
+
+        const conductorUid = currentUser.uid;
+        const conductorRef = database().ref(`/users/accounts/${conductorUid}`);
+
+        // 🚨 Listen for real-time updates
+        conductorRef.on('value', (snapshot) => {
+          if (snapshot.exists()) {
+            const conductorData = snapshot.val();
+            setUserStatus(conductorData.status); // ✅ Reinitialize status
+          }
+        });
+      } catch (error) {
+        console.error('Error checking user status:', error);
+      }
+    };
+
+    checkUserStatus();
+
+    return () => {
+      // Cleanup Firebase listener when the screen is unmounted
+      database().ref(`/users/accounts/${auth().currentUser?.uid}`).off();
+    };
+  }, [])
+);
+
+ const showVehicleStatusPopup = () => {
+  Alert.alert(
+    'Vehicle Status',
+    'Out of Stock - Cannot Complete Transaction.',
+    [{ text: 'OK', onPress: () => console.log('User acknowledged') }]
+  );
+};
+
+ useEffect(() => {
+  const checkJeepneyStatus = async () => {
+    try {
+      const currentUser = auth().currentUser;
+      if (!currentUser) {
+        console.warn('No user logged in.');
+        return;
+      }
+
+      const conductorUid = currentUser.uid;
+      const conductorRef = database().ref(`/users/accounts/${conductorUid}`);
+      const conductorSnapshot = await conductorRef.once('value');
+
+      if (!conductorSnapshot.exists()) {
+        console.warn('Conductor account not found.');
+        return;
+      }
+
+      const conductorData = conductorSnapshot.val();
+      const driverUid = conductorData.creatorUid;
+      if (!driverUid) {
+        console.warn('No linked driver found.');
+        return;
+      }
+
+      const driverRef = database().ref(`/users/accounts/${driverUid}`);
+      const driverSnapshot = await driverRef.once('value');
+
+      if (!driverSnapshot.exists()) {
+        console.warn('Driver account not found.');
+        return;
+      }
+
+      const driverData = driverSnapshot.val();
+      const jeepneyId = driverData.jeep_assigned;
+      if (!jeepneyId) {
+        console.warn('No jeepney assigned.');
+        return;
+      }
+
+      const jeepneyRef = database().ref(`/jeepneys/${jeepneyId}`);
+      const jeepneySnapshot = await jeepneyRef.once('value');
+
+      if (!jeepneySnapshot.exists()) {
+        console.warn('Jeepney not found.');
+        return;
+      }
+
+      const jeepneyData = jeepneySnapshot.val();
+      setJeepneyStatus(jeepneyData.status);
+
+      // ✅ Automatically show pop-up if the status is NOT "in-service"
+      if (jeepneyData.status !== 'in-service') {
+        showVehicleStatusPopup();
+      }
+    } catch (error) {
+      console.error('Error checking jeepney status:', error);
+    }
+  };
+
+  checkJeepneyStatus();
+}, []);
+
 
   const sanitizeQRValue = (value) => {
     return value.replace(/[<>]/g, '').trim();
@@ -72,60 +191,140 @@ const QRCodeScannerScreen = () => {
       }
     }
   };
+
+
+
+const handleGenerate = async () => {
+    if (!passengerType) {
+      Alert.alert('Error', 'Please select a passenger type.');
+      return;
+    }
+  
+    try {
+      const currentUser = auth().currentUser;
+      if (!currentUser) {
+        Alert.alert('Error', 'You must be logged in to generate a QR code.');
+        return;
+      }
+  
+      const userLoggedUid = currentUser.uid;
+      const dailyCountRef = database().ref(`usernameCount/${userLoggedUid}`);
+      const currentDate = new Date().toISOString().split('T')[0];
+  
+      let newUsernameCount = await dailyCountRef.transaction((data) => {
+        if (data && data.date === currentDate) {
+          return { date: currentDate, count: data.count + 1 }; // Increment safely
+        } else {
+          return { date: currentDate, count: 1 }; // Reset if new day
+        }
+      }).then((result) => result.committed ? result.snapshot.val().count : 1);
+  
+      // Ensure we fetched the correct count
+      if (!newUsernameCount) {
+        Alert.alert('Error', 'Failed to fetch username count.');
+        return;
+      }
+  
+      // Create new temp QR reference
+      const tempRef = database().ref(`temporary/${userLoggedUid}`).push();
+      const generatedUid = tempRef.key;  
+  
+      const tempData = {
+        createdAt: new Date().toISOString(),
+        status: "enabled",
+        type: passengerType,
+        username: `${newUsernameCount}`, // Ensures unique username per day
+      };
+  
+      await tempRef.set(tempData); // Store QR code data
+  
+      console.log(`Temporary QR Code generated: ${generatedUid}`);
+      console.log(`Generated Username: ${newUsernameCount}`);
+  
+      setQrValue(generatedUid); 
+      setModalVisible(false); 
+  
+      navigation.navigate('GenerateQR', {
+        passengerType,
+        userId: userLoggedUid,  
+        qrValue: generatedUid,  
+      });
+      
+    } catch (error) {
+      console.error('Error generating temporary QR:', error);
+      Alert.alert('Error', 'Failed to generate QR code. Please try again.');
+    }
+  };
+  
   
   const saveTripToFirebase = async (scannedUid) => {
     try {
+      setIsScanning(true);  // Keep loading state active
+  
       let isTemporaryQR = false;
       let creatorUid = scannedUid;
       let tempData = null;
-
+  
       const currentUser = auth().currentUser;
       if (!currentUser) {
         Alert.alert('Error', 'Conductor is not logged in.');
+        setIsScanning(false);
         return;
       }
-
+  
       const conductorUid = currentUser.uid;
       const conductorRef = database().ref(`/users/accounts/${conductorUid}`);
       const conductorSnapshot = await conductorRef.once('value');
       if (!conductorSnapshot.exists()) {
         Alert.alert('Error', 'Conductor account not found.');
+        setIsScanning(false);
         return;
       }
-
+  
       const conductorData = conductorSnapshot.val();
       const conductorName = `${conductorData.firstName || ''} ${conductorData.lastName || ''}`.trim();
       const driverUid = conductorData.creatorUid;
       if (!driverUid) {
         Alert.alert('Error', 'No linked driver found for this conductor.');
+        setIsScanning(false);
         return;
       }
-
+  
       const driverRef = database().ref(`/users/accounts/${driverUid}`);
       const driverSnapshot = await driverRef.once('value');
       if (!driverSnapshot.exists()) {
         Alert.alert('Error', 'Driver account not found.');
+        setIsScanning(false);
         return;
       }
-
+  
       const driverData = driverSnapshot.val();
       const jeepneyId = driverData.jeep_assigned;
       if (!jeepneyId) {
         Alert.alert('Error', 'No jeepney assigned to this driver.');
+        setIsScanning(false);
         return;
       }
-
+  
       const jeepneyRef = database().ref(`/jeepneys/${jeepneyId}`);
       const jeepneySnapshot = await jeepneyRef.once('value');
       if (!jeepneySnapshot.exists()) {
         Alert.alert('Error', 'Jeepney not found.');
+        setIsScanning(false);
         return;
       }
-
+  
       const jeepneyData = jeepneySnapshot.val();
+  
+       if (jeepneyData.status !== "in-service") {
+        Alert.alert('Jeep Status', 'Out of Stock Cannot Complete Transaction.');  
+        setIsScanning(false);
+        return;
+      }
+  
       const maxCapacity = jeepneyData.capacity || 25;
       let currentCapacity = jeepneyData.currentCapacity ?? maxCapacity;
-
+  
       const tempRef = database().ref(`/temporary`);
       const tempSnapshot = await tempRef.once('value');
       tempSnapshot.forEach((child) => {
@@ -137,138 +336,195 @@ const QRCodeScannerScreen = () => {
           tempData = generatedUidData[scannedUid];
         }
       });
-
+  
       if (isTemporaryQR && (!tempData || tempData.status !== 'enabled')) {
         Alert.alert('Error', 'This temporary QR code is not valid or already disabled.');
+        setIsScanning(false);
         return;
       }
-
+  
       const userRef = database().ref(`/users/accounts/${creatorUid}`);
       const userSnapshot = await userRef.once('value');
       if (!userSnapshot.exists()) {
         Alert.alert('Error', 'No user found for this QR code.');
+        setIsScanning(false);
         return;
       }
-
+  
       const userData = userSnapshot.val();
       let fareType = isTemporaryQR ? tempData?.type?.toLowerCase() || 'regular' : userData.acc_type?.toLowerCase() || 'regular';
-
+  
       const fareRef = database().ref(`/fares/${fareType}`);
       const fareSnapshot = await fareRef.once('value');
       if (!fareSnapshot.exists()) {
         Alert.alert('Error', `Fare type "${fareType}" not found.`);
+        setIsScanning(false);
         return;
       }
-
+  
       const fareData = fareSnapshot.val();
       const baseFareDistanceMeters = 4000;
       const baseFare = fareData.firstKm;
       const additionalRatePerMeter = fareData.succeedingKm / 1000;
-
+  
       const tripListRef = database().ref(`/trips/temporary/${creatorUid}/${scannedUid}`);
       const tripSnapshot = await tripListRef.once('value');
-
+  
       if (tripSnapshot.exists() && tripSnapshot.val().status === 'in-progress') {
         const location = await getLocation(currentUser.uid);
         if (!location) throw new Error('Failed to retrieve location.');
-
+  
         const { latitude, longitude } = location;
         const tripData = tripSnapshot.val();
         const { latitude: startLat, longitude: startLong } = tripData.start_loc;
-
+  
         const directionsUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/${startLong},${startLat};${longitude},${latitude}?access_token=${MAPBOX_ACCESS_TOKEN}`;
         const response = await fetch(directionsUrl);
         const routeData = await response.json();
-
+  
         if (!response.ok || !routeData.routes || routeData.routes.length === 0) {
           Alert.alert('Error', 'Failed to get route from Mapbox.');
+          setIsScanning(false);
           return;
         }
-
+  
         const distanceMeters = routeData.routes[0].distance;
         let payment = baseFare;
-
+  
         if (distanceMeters > baseFareDistanceMeters) {
           const extraMeters = distanceMeters - baseFareDistanceMeters;
           payment += extraMeters * additionalRatePerMeter;
         }
-
+  
         payment = parseFloat(payment.toFixed(2));
-
+  
         if (userData.wallet_balance >= payment) {
+          // ✅ User has enough balance - Deduct full fare
           await userRef.update({ wallet_balance: userData.wallet_balance - payment });
-
+        
           await conductorRef.update({
             wallet_balance: (conductorData.wallet_balance || 0) + payment,
           });
-
-          const scannerTransactionsRef = database().ref(`/users/accounts/${conductorUid}/transactions`);
-          await scannerTransactionsRef.push({
-            type: 'trip',
-            description: `Received payment from passenger`,
-            passengerUid: creatorUid,
-            passengerName: `${userData.firstName || ''} ${userData.lastName || ''}`.trim(),
-            amount: payment,
-            distance: parseFloat((distanceMeters / 1000).toFixed(2)),
-            createdAt: new Date().toISOString(),
-          });
-
-          await tripListRef.update({
-            stop_loc: { latitude, longitude },
-            distance: parseFloat((distanceMeters / 1000).toFixed(2)),
-            payment,
-            status: 'completed',
-          });
-
-          currentCapacity = Math.min(maxCapacity, currentCapacity + 1);
-          await jeepneyRef.update({ currentCapacity });
-
-          const transactionsRef = database().ref(`/users/accounts/${creatorUid}/transactions`);
-          await transactionsRef.push({
-            type: 'trip',
-            description: `Trip payment to conductor`,
-            conductorUid: conductorUid,
-            conductorName: conductorName,
-            amount: payment,
-            distance: parseFloat((distanceMeters / 1000).toFixed(2)),
-            createdAt: new Date().toISOString(),
-          });
-
-          const today = new Date().toISOString().split('T')[0];
-          const incomeRef = database().ref(`/jeepneys/${jeepneyId}/dailyStats/${today}`);
-          const incomeSnapshot = await incomeRef.once('value');
-
-          const dailyData = incomeSnapshot.val() || { totalIncome: 0, totalPassengers: 0 };
-          const updatedDailyData = {
-            totalIncome: (dailyData.totalIncome || 0) + payment,
-            totalPassengers: (dailyData.totalPassengers || 0) + 1,
-          };
-
-          await incomeRef.update(updatedDailyData);
-
-          if (isTemporaryQR) {
-            const qrRef = database().ref(`/temporary/${creatorUid}/${scannedUid}`);
-            await qrRef.update({ status: 'disabled' });
-          }
-
-          Alert.alert(
-            'Trip Completed',
-            `Trip completed! Fare: ₱${payment.toFixed(2)}. Seats Available: ${currentCapacity}`
-          );
+        
+          deductedAmount = payment; // User pays full amount
+        
         } else {
-          Alert.alert('Insufficient Balance', 'Wallet balance is not enough to complete the trip.');
+          // ❌ User has insufficient balance - Deduct everything they have
+          const userBalance = userData.wallet_balance; // Example: ₱10
+          const remainingFare = payment - userBalance; // Example: ₱14 - ₱10 = ₱4
+        
+          // ✅ Deduct full user balance (user goes to 0)
+          await userRef.update({ wallet_balance: 0 });
+        
+          // ✅ Deduct only remainingFare from the conductor's balance
+          await conductorRef.update({
+            wallet_balance: (conductorData.wallet_balance || 0) - remainingFare, 
+          });
+        
+          deductedAmount = userBalance; // User pays what they have
+        
+          Alert.alert(
+            'Insufficient Balance',
+            `User paid ₱${userBalance}, remaining ₱${remainingFare} was deducted from the conductor.`
+          );
         }
+        
+        // ✅ Save Transactions (Even if insufficient funds)
+        await database().ref(`/users/accounts/${creatorUid}/transactions`).push({
+          type: 'trip',
+          description: 'Trip payment deducted',
+          conductorUid: conductorUid,
+          conductorName: conductorName,
+          amount: deductedAmount,
+          distance: parseFloat((distanceMeters / 1000).toFixed(2)),
+          createdAt: new Date().toISOString(),
+        });
+        
+        // ✅ Log conductor's transaction too
+        await database().ref(`/users/accounts/${conductorUid}/transactions`).push({
+          type: 'trip',
+          description: `Trip payment received`,
+          conductorUid: conductorUid,
+          conductorName: 'You',
+          amount: deductedAmount,
+          distance: parseFloat((distanceMeters / 1000).toFixed(2)),
+          createdAt: new Date().toISOString(),
+        });
+        
+        // ✅ Update trip details
+        await tripListRef.update({
+          stop_loc: { latitude, longitude },
+          distance: parseFloat((distanceMeters / 1000).toFixed(2)),
+          payment,
+          status: 'completed',
+        });
+        
+        currentCapacity = Math.min(maxCapacity, currentCapacity + 1);
+        await jeepneyRef.update({ currentCapacity });
+        
+        if (isTemporaryQR) {
+          const qrRef = database().ref(`/temporary/${creatorUid}/${scannedUid}`);
+          await qrRef.update({ status: 'disabled' });
+        }
+        
+        // ✅ Send Notification to User
+        await database().ref(`/notification_user/${creatorUid}`).push({
+          creatorUid,
+          amount: deductedAmount,
+          status: 'unread',
+          createdAt: new Date().toISOString(),
+          type: 'trip',
+          message: `Trip Payment Successful with an amount of ₱${deductedAmount}`,
+        });
+        
+        // ✅ Send Notification to Conductor
+        await database().ref(`/notification_user/${conductorUid}`).push({
+          conductorUid,
+          amount: deductedAmount,
+          status: 'unread',
+          createdAt: new Date().toISOString(),
+          type: 'trip',
+          message: `Trip Payment Received with an amount of ₱${deductedAmount}`,
+        });
+        
+        Alert.alert(
+          'Trip Completed',
+          `Trip completed! Fare: ₱${payment.toFixed(2)}. Seats Available: ${currentCapacity}`
+        );
+        
+        // ✅ **Update Jeepney Daily Stats**
+        const currentDate = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
+        const dailyStatsRef = database().ref(`/jeepneys/${jeepneyId}/dailyStats/${currentDate}`);
+        
+        await dailyStatsRef.transaction((dailyStats) => {
+            if (dailyStats) {
+                return {
+                    totalIncome: (dailyStats.totalIncome || 0) + payment,
+                    totalPassengers: (dailyStats.totalPassengers || 0) + 1,
+                };
+            } else {
+                return { totalIncome: payment, totalPassengers: 1 };
+            }
+        });
+        
+        setTimeout(() => {
+          setIsScanning(false);
+        }, 500);
+        
+
+        
       } else {
         if (currentCapacity <= 0) {
           Alert.alert('Error', 'The jeepney is full.');
+          setIsScanning(false);
           return;
         }
-
+  
         const location = await getLocation(currentUser.uid);
         if (!location) throw new Error('Failed to retrieve location.');
-
+  
         const { latitude, longitude } = location;
-
+  
         await tripListRef.set({
           start_loc: { latitude, longitude },
           stop_loc: null,
@@ -279,18 +535,24 @@ const QRCodeScannerScreen = () => {
           qrId: scannedUid,
           timestamp: Date.now(),
         });
-
+  
         currentCapacity -= 1;
         await jeepneyRef.update({ currentCapacity });
-
+  
         Alert.alert('Trip Started', `New trip has been started! Remaining Seats: ${currentCapacity}`);
+  
+        setTimeout(() => {
+          setIsScanning(false);
+        }, 500);
       }
     } catch (error) {
       console.error('Error saving trip to Firebase:', error);
       Alert.alert('Error', 'Failed to save trip data.');
+      setIsScanning(false);
     }
   };
-
+  
+  
   const codeScanner = useCodeScanner({
     codeTypes: ['qr'],
     onCodeScanned: (codes) => {
@@ -313,28 +575,30 @@ const QRCodeScannerScreen = () => {
   
   const uploadQrCode = async () => {
     if (isScanning) return;
-    setIsScanning(true);
-
+    setIsScanning(true); // Keep scanning state active until alert is dismissed
+  
     try {
       const result = await launchImageLibrary({ mediaType: 'photo' });
-
+  
       if (result.assets && result.assets.length > 0) {
         const fileUri = result.assets[0].uri;
         const fileSize = result.assets[0].fileSize / (1024 * 1024);
         const fileExtension = fileUri.split('.').pop().toLowerCase();
-
+  
         if (fileSize > MAX_FILE_SIZE_MB) {
-          Alert.alert('Error', `File size exceeds ${MAX_FILE_SIZE_MB}MB. Please upload a smaller image.`);
-          setIsScanning(false);
+          Alert.alert('Error', `File size exceeds ${MAX_FILE_SIZE_MB}MB. Please upload a smaller image.`, [
+            { text: 'OK', onPress: () => setIsScanning(false) }
+          ]);
           return;
         }
-
+  
         if (!ALLOWED_EXTENSIONS.includes(fileExtension)) {
-          Alert.alert('Error', 'Unsupported file format. Please upload a JPG or PNG image.');
-          setIsScanning(false);
+          Alert.alert('Error', 'Unsupported file format. Please upload a JPG or PNG image.', [
+            { text: 'OK', onPress: () => setIsScanning(false) }
+          ]);
           return;
         }
-
+  
         RNQRGenerator.detect({ uri: fileUri })
           .then((response) => {
             const { values } = response;
@@ -343,26 +607,30 @@ const QRCodeScannerScreen = () => {
               console.log('Decoded QR Code Content:', sanitizedQR);
               saveTripToFirebase(sanitizedQR);
             } else {
-              Alert.alert('Error', 'No QR code detected in the image.');
+              Alert.alert('Error', 'No QR code detected in the image.', [
+                { text: 'OK', onPress: () => setIsScanning(false) }
+              ]);
             }
           })
           .catch((error) => {
             console.error('Error decoding QR code:', error);
-            Alert.alert('Error', 'Failed to decode QR code.');
-          })
-          .finally(() => {
-            setIsScanning(false);
+            Alert.alert('Error', 'Failed to decode QR code.', [
+              { text: 'OK', onPress: () => setIsScanning(false) }
+            ]);
           });
       } else {
-        Alert.alert('Error', 'No image selected.');
-        setIsScanning(false);
+        Alert.alert('Error', 'No image selected.', [
+          { text: 'OK', onPress: () => setIsScanning(false) }
+        ]);
       }
     } catch (error) {
       console.error('Error uploading QR code:', error);
-      Alert.alert('Error', 'Failed to upload or read QR code image.');
-      setIsScanning(false);
+      Alert.alert('Error', 'Failed to upload or read QR code image.', [
+        { text: 'OK', onPress: () => setIsScanning(false) }
+      ]);
     }
   };
+  
 
   useEffect(() => {
     const checkPermission = async () => {
@@ -388,55 +656,127 @@ const QRCodeScannerScreen = () => {
       </View>
     );
   }
+
+
   return (
     <View style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-       
         <Text style={styles.headerTitle}>QR Code Scanner</Text>
-    
- 
       </View>
-      {locationError && (
-  <View style={styles.errorContainer}>
-    <Text style={styles.errorText}>Unable to retrieve GPS location. Please ensure GPS is enabled.</Text>
-  </View>
-)}
 
+      {/* GPS Location Error */}
+      {locationError && (
+        <View style={styles.errorContainer}>
+          <Text style={styles.errorText}>
+            Unable to retrieve GPS location. Please ensure GPS is enabled.
+          </Text>
+        </View>
+      )}
+
+      {/* Scanner Title */}
       <Text style={styles.scannerTitle}>Scan passenger QR code</Text>
+
+      {/* QR Code Scanner */}
       <View style={styles.qrContainer}>
         <View style={styles.qrBox}>
           <Camera
             style={StyleSheet.absoluteFill}
             device={device}
-            isActive={!isScanning}
-            codeScanner={codeScanner}
+            isActive={userStatus !== 'Inactive' && !isScanning} // ✅ Disable camera if user is inactive
+            codeScanner={userStatus === 'Inactive' ? null : codeScanner} // ✅ Disable scanner if inactive
           />
+          {/* Loading Overlay */}
           {isScanning && (
             <View style={styles.loadingOverlay}>
               <ActivityIndicator size="large" color="#FFF" />
+              <Text style={styles.loadingText}>Processing... Please wait</Text>
             </View>
           )}
-        
         </View>
       </View>
+
+      {/* Buttons Section */}
       <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.button1} onPress={() => navigation.navigate('Share')}>
-          <Text style={styles.buttonText}>QR Code Share</Text>
-        </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.button2, isScanning && { opacity: 0.6 }]}
+          style={[styles.button1, userStatus === 'Inactive' && { opacity: 0.5 }]} // ✅ Disable button if inactive
+          onPress={() => userStatus !== 'Inactive' && setModalVisible(true)}
+          disabled={userStatus === 'Inactive'}>
+          <Text style={styles.buttonText}>Create QR Code</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.button2, (isScanning || userStatus === 'Inactive') && { opacity: 0.6 }]}
           onPress={uploadQrCode}
-          disabled={isScanning}>
-          <Text style={styles.buttonText}>{isScanning ? 'Processing...' : 'Upload QR Code'}</Text>
+          disabled={isScanning || userStatus === 'Inactive'}>
+          <Text style={styles.buttonText}>
+            {isScanning ? 'Processing...' : 'Upload QR Code'}
+          </Text>
         </TouchableOpacity>
       </View>
-      <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.button3} onPress={() => navigation.navigate('AllQR')}>
+    <View style={styles.buttonContainer}>
+        <TouchableOpacity
+          style={[styles.button3,(isScanning || userStatus === 'Inactive') && { opacity: 0.6 }]}
+          onPress={() => navigation.navigate('AllQR')}>
           <Text style={styles.buttonText}>View ALL QR Generated</Text>
         </TouchableOpacity>
       </View>
+      {/* Modal for Passenger Type Selection */}
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setModalVisible(false)}>
+        <View style={styles.modalContainer}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Type of Passenger</Text>
+            <TouchableOpacity
+              style={passengerType === 'Regular' ? styles.selectedOption : styles.option}
+              onPress={() => setPassengerType('Regular')}>
+              <Text style={styles.optionText}>REGULAR</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={passengerType === 'Discount' ? styles.selectedOption : styles.option}
+              onPress={() => setPassengerType('Discount')}>
+              <Text style={styles.optionText}>DISCOUNTED</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.generateButton} onPress={handleGenerate}>
+              <Text style={styles.generateButtonText}>Generate</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* 🚨 Undismissable Modal when User is Inactive 🚨 */}
+      <Modal visible={userStatus === 'Inactive'} transparent={true} animationType="fade">
+  <View style={styles.modalOverlay}>
+    <View style={styles.inactiveModal}>
+      {/* 🚨 Warning Icon */}
+      <Ionicons name="alert-circle" size={50} color="#E74C3C" style={styles.warningIcon} />
+
+      <Text style={styles.inactiveTitle}>Access Restricted</Text>
+      <Text style={styles.inactiveMessage}>
+        Your account is inactive. Please contact your driver.
+      </Text>
+
+      {/* Contact Support Button */}
+      <TouchableOpacity
+        style={styles.supportButton}
+        onPress={() => {
+          navigation.navigate('Home'); // Navigates to Home
+        }}
+      >
+        <Text style={styles.supportButtonText}>Return</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
+
+
+
     </View>
   );
+  
 };
 
  
@@ -479,7 +819,135 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
   },
-  
+  scanButton: {
+    backgroundColor: '#4CAF50',
+    padding: 15,
+    margin: 10,
+    borderRadius: 8,
+  },
+  uploadButton: {
+    backgroundColor: '#2196F3',
+    padding: 15,
+    margin: 10,
+    borderRadius: 8,
+  },
+  buttonText: {
+    color: '#fff',
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#fff',
+    fontSize: 18,
+  },  modalContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+  },
+  modalContent: {
+    width: '80%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 15,
+    padding: 20,
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    color: '#000',
+  },  option: {
+    width: '100%',
+    padding: 15,
+    borderRadius: 10,
+    backgroundColor: '#F4F4F4',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  selectedOption: {
+    width: '100%',
+    padding: 15,
+    borderRadius: 10,
+    backgroundColor: '#D6E6CF',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  optionText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#000',
+  },
+  generateButton: {
+    backgroundColor: '#2B393B',
+    paddingVertical: 12,
+    paddingHorizontal: 40,
+    borderRadius: 10,
+    marginTop: 10,
+  },
+  generateButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)', // Dim the background
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  inactiveModal: {
+    width: '85%',
+    backgroundColor: '#fff',
+    padding: 20,
+    borderRadius: 15,
+    alignItems: 'center',
+    elevation: 5, // Shadow for Android
+    shadowColor: '#000', // Shadow for iOS
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+  },
+  warningIcon: {
+    marginBottom: 10,
+  },
+  inactiveTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#E74C3C', // Red warning color
+    marginBottom: 10,
+  },
+  inactiveMessage: {
+    fontSize: 16,
+    color: '#444',
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  supportButton: {
+    backgroundColor: '#E74C3C', // Red button
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 8,
+    width: '80%',
+    alignItems: 'center',
+  },
+  supportButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
 });
 
 export default QRCodeScannerScreen;
