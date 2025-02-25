@@ -7,8 +7,6 @@ import {
   TouchableOpacity,
   Modal,
   Alert,
-  ActivityIndicator,
-  RefreshControl 
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
@@ -21,71 +19,44 @@ const Conductors = () => {
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [accountList, setAccountList] = useState([]);
   const navigation = useNavigation();
-  const [addConductorModalVisible, setAddConductorModalVisible] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
 
+  useEffect(() => {
+    const fetchConductors = async () => {
+      try {
+        const currentUser = auth().currentUser;
+        if (!currentUser) {
+          Alert.alert('Error', 'You must be logged in to view conductors.');
+          return;
+        }
 
-  const fetchConductors = async () => {
-    try {
-      setLoading(true);
-      setRefreshing(true);
-  
-      const currentUser = auth().currentUser;
-      if (!currentUser) {
-        Alert.alert('Error', 'You must be logged in to view conductors.');
-        setLoading(false);
-        setRefreshing(false);
-        return;
-      }
-  
-      const driverUid = currentUser.uid;
-      const conductorRef = database().ref('users/accounts')
-        .orderByChild('creatorUid')
-        .equalTo(driverUid);
-  
-      console.log('🔄 Fetching Conductors for UID:', driverUid);
-  
-      // ✅ Use real-time updates instead of one-time fetch
-      conductorRef.on('value', (snapshot) => {
-        if (!snapshot.exists()) {
-          console.warn('⚠️ No conductors found.');
-          setAccountList([]); 
-        } else {
+        const driverUid = currentUser.uid;
+
+        // Set up a real-time listener
+        const conductorRef = database()
+          .ref('users/accounts')
+          .orderByChild('creatorUid')
+          .equalTo(driverUid);
+
+        const onValueChange = conductorRef.on('value', (snapshot) => {
           const conductors = [];
           snapshot.forEach((childSnapshot) => {
-            conductors.push({ id: childSnapshot.key, ...childSnapshot.val() });
+            const conductor = { id: childSnapshot.key, ...childSnapshot.val() };
+            conductors.push(conductor);
           });
-  
-          console.log('✅ Conductors Fetched:', conductors.length);
-          setAccountList(conductors); 
-        }
-        setLoading(false);
-        setRefreshing(false);
-      });
-  
-    } catch (error) {
-      console.error('❌ Error fetching conductors:', error);
-      Alert.alert('Error', 'Failed to fetch conductors.');
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
-  
-  
-  
-  
-  
-  const handleRefresh = () => {
-    setRefreshing(true);
-    fetchConductors(); // ✅ Fetch the updated list of conductors
-  };
-  
-  
-  useEffect(() => {
-    fetchConductors(); // ✅ Fetch conductors initially
+
+          setAccountList(conductors); // Update the state with the latest data
+        });
+
+        // Clean up the listener when the component unmounts
+        return () => conductorRef.off('value', onValueChange);
+      } catch (error) {
+        console.error('Error fetching conductors:', error);
+        Alert.alert('Error', 'Failed to fetch conductors.');
+      }
+    };
+
+    fetchConductors();
   }, []);
-  
 
   const openModal = (account) => {
     setSelectedAccount(account);
@@ -108,43 +79,11 @@ const Conductors = () => {
 
   const updateStatus = async (newStatus) => {
     try {
-      if (!selectedAccount) {
-        Alert.alert('Error', 'No conductor selected.');
-        return;
-      }
-  
-      const currentUser = auth().currentUser;
-      if (!currentUser) {
-        Alert.alert('Error', 'You must be logged in.');
-        return;
-      }
-  
-      const driverUid = currentUser.uid;
-  
-      if (newStatus === 'Active') {
-        // ✅ Check if an active conductor already exists for this driver
-        const conductorRef = database().ref('users/accounts').orderByChild('creatorUid').equalTo(driverUid);
-        const snapshot = await conductorRef.once('value');
-  
-        let alreadyActive = false;
-        snapshot.forEach((child) => {
-          const conductor = child.val();
-          if (conductor.status === 'Active' && child.key !== selectedAccount.id) {
-            alreadyActive = true;
-          }
-        });
-  
-        if (alreadyActive) {
-          Alert.alert('Error', 'Only one conductor can be Active at a time.');
-          return;
-        }
-      }
-  
-      // ✅ Update the selected conductor's status
+      // Update the status in Firebase Realtime Database
       await database().ref(`users/accounts/${selectedAccount.id}`).update({
         status: newStatus,
       });
-  
+
       Alert.alert('Success', `Status updated to ${newStatus}`);
       closeStatusModal();
     } catch (error) {
@@ -152,7 +91,6 @@ const Conductors = () => {
       Alert.alert('Error', 'Failed to update status.');
     }
   };
-  
 
   const renderItem = ({ item }) => (
     <View style={styles.accountCard}>
@@ -172,7 +110,6 @@ const Conductors = () => {
     </View>
   );
 
-
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -188,34 +125,21 @@ const Conductors = () => {
         <View style={styles.titleRow}>
           <Text style={styles.title}>List of Conductors</Text>
           <TouchableOpacity
-  style={styles.addButton}
-  onPress={() => setAddConductorModalVisible(true)}  
->
-  <Ionicons name="add-circle" size={20} color="#FFF" />
-  <Text style={styles.addButtonText}>Add</Text>
-</TouchableOpacity>
-
-
+            style={styles.addButton}
+            onPress={() => navigation.navigate('AddConductor')}
+          >
+            <Ionicons name="add-circle" size={20} color="#FFF" />
+            <Text style={styles.addButtonText}>Add</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Account List */}
-        {loading ? (
-          <ActivityIndicator size="large" color="#4CAF50" style={styles.loadingIndicator} />
-        ) : accountList.length === 0 ? (
-          <Text style={styles.noDataText}>No Conductors Available</Text>
-        ) : (
-          <FlatList
+        <FlatList
           data={accountList}
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           contentContainerStyle={styles.list}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={["#4CAF50"]} />
-          }
         />
-        
-        )}
-
       </View>
 
       {/* Main Modal */}
@@ -242,57 +166,11 @@ const Conductors = () => {
               }}
             >
               <Ionicons name="create-outline" size={30} color="#007AFF" />
-              <Text style={styles.modalOptionText}>View More</Text>
+              <Text style={styles.modalOptionText}>Edit Details</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
-
- 
-{/* Add Conductor Modal */}
-<Modal
-  visible={addConductorModalVisible} // ✅ Updated State
-  transparent={true}
-  animationType="fade"
-  onRequestClose={() => setAddConductorModalVisible(false)} // ✅ Updated State
->
-  <View style={styles.addConductorModalOverlay}> {/* ✅ Updated Style */}
-    <View style={styles.addConductorModalContainer}> {/* ✅ Updated Style */}
-      <Text style={styles.addConductorModalTitle}>Add Conductor</Text>
-
-      <TouchableOpacity
-        style={styles.addConductorModalOption}
-        onPress={() => {
-          setAddConductorModalVisible(false);
-          navigation.navigate('AddConductor');  
-        }}
-      >
-        <Ionicons name="person-add" size={24} color="#007AFF" />
-        <Text style={styles.addConductorModalOptionText}>Add New</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.addConductorModalOption}
-        onPress={() => {
-          setAddConductorModalVisible(false);
-          navigation.navigate('AddExisting');  
-        }}
-      >
-        <Ionicons name="search" size={24} color="#007AFF" />
-        <Text style={styles.addConductorModalOptionText}>Add Existing</Text>
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={styles.addConductorModalClose}
-        onPress={() => setAddConductorModalVisible(false)}
-      >
-        <Ionicons name="close-circle" size={30} color="#FF0000" />
-      </TouchableOpacity>
-    </View>
-  </View>
-</Modal>
-
-
 
       {/* Status Modal */}
       <Modal
@@ -479,55 +357,7 @@ const styles = StyleSheet.create({
   statusOptionText: {
     fontSize: 16,
     color: '#000',
-  },  addConductorModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
-  addConductorModalContainer: {
-    width: 250,
-    backgroundColor: '#FFF',
-    borderRadius: 10,
-    padding: 16,
-    alignItems: 'center',
-    elevation: 10,
-  },
-  addConductorModalTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 15,
-  },
-  addConductorModalOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    marginBottom: 10,
-    width: '100%',
-    justifyContent: 'flex-start',
-  },
-  addConductorModalOptionText: {
-    fontSize: 16,
-    color: '#000',
-    marginLeft: 10,
-  },
-  addConductorModalClose: {
-    marginTop: 10,
-  },loadingIndicator: {
-    marginTop: 20,
-    alignSelf: 'center',
-  },
-  noDataText: {
-    fontSize: 16,
-    color: '#757575',
-    textAlign: 'center',
-    marginTop: 20,
-  },
-  
 });
 
 export default Conductors;

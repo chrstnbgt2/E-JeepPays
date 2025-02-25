@@ -129,54 +129,56 @@ const MyQRScreenShareConductor = () => {
       }
   
       const userLoggedUid = currentUser.uid;
-      const dailyCountRef = database().ref(`usernameCount/${userLoggedUid}`);
-      const currentDate = new Date().toISOString().split('T')[0];
   
-      let newUsernameCount = await dailyCountRef.transaction((data) => {
-        if (data && data.date === currentDate) {
-          return { date: currentDate, count: data.count + 1 }; // Increment safely
-        } else {
-          return { date: currentDate, count: 1 }; // Reset if new day
-        }
-      }).then((result) => result.committed ? result.snapshot.val().count : 1);
+       const dailyCountRef = database().ref(`usernameCount/${userLoggedUid}`);
+      const currentDate = new Date().toISOString().split('T')[0]; 
   
-      // Ensure we fetched the correct count
-      if (!newUsernameCount) {
-        Alert.alert('Error', 'Failed to fetch username count.');
-        return;
+      let newUsernameCount = 1; 
+   
+      const snapshot = await dailyCountRef.once('value');
+      const data = snapshot.val();
+  
+      if (data && data.date === currentDate) {
+ 
+        newUsernameCount = data.count + 1;
       }
   
-      // Create new temp QR reference
-      const tempRef = database().ref(`temporary/${userLoggedUid}`).push();
+   
+      await dailyCountRef.set({
+        date: currentDate,
+        count: newUsernameCount,
+      });
+  
+       const tempRef = database().ref(`temporary/${userLoggedUid}`).push();
       const generatedUid = tempRef.key;  
   
-      const tempData = {
+       const incrementingUsername = `${newUsernameCount}`;
+  
+       const tempData = {
         createdAt: new Date().toISOString(),
         status: "enabled",
         type: passengerType,
-        username: `${newUsernameCount}`, // Ensures unique username per day
+        username: incrementingUsername,
       };
   
-      await tempRef.set(tempData); // Store QR code data
+      await tempRef.set(tempData);
   
       console.log(`Temporary QR Code generated: ${generatedUid}`);
-      console.log(`Generated Username: ${newUsernameCount}`);
+      console.log(`Generated Username: ${incrementingUsername}`);
   
-      setQrValue(generatedUid); 
-      setModalVisible(false); 
+       setQrValue(generatedUid); 
   
+       setModalVisible(false); 
       navigation.navigate('GenerateQR', {
         passengerType,
         userId: userLoggedUid,  
         qrValue: generatedUid,  
       });
-      
     } catch (error) {
       console.error('Error generating temporary QR:', error);
       Alert.alert('Error', 'Failed to generate QR code. Please try again.');
     }
   };
-  
   
   
 
