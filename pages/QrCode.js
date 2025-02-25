@@ -6,6 +6,7 @@ import auth from '@react-native-firebase/auth';
 import database from '@react-native-firebase/database';
 import ViewShot from 'react-native-view-shot';
 import RNFS from 'react-native-fs';
+import moment from 'moment';  
 
 const MyQRScreen = () => {
   const navigation = useNavigation();
@@ -102,61 +103,63 @@ const saveQrCode = async () => {
   }
 };
 
-  
-  const handleGenerate = async () => {
-    try {
-      const currentUser = auth().currentUser;
-      if (!currentUser) {
-        Alert.alert('Error', 'You must be logged in to generate a QR code.');
-        return;
-      }
-  
-      const userLoggedUid = currentUser.uid;
-  
-      // Create a new temporary UID in Firebase
-      const tempRef = database().ref(`temporary/${userLoggedUid}`).push();
-      const generatedUid = tempRef.key;
-  
-      // Generate a random unique username
-      const generateRandomUsername = () => {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-        let username = 'User_';
-        for (let i = 0; i < 8; i++) {
-          username += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return username;
-      };
-  
-      const randomUsername = generateRandomUsername();
-  
-      // Save the temporary QR code data in Firebase
-      const tempData = {
-        createdAt: new Date().toISOString(),
-        type: 'Regular',
-        username: randomUsername,
-        status:'enabled'
-      };
-  
-      await tempRef.set(tempData);
-  
-      console.log(`Temporary QR Code generated: ${generatedUid}`);
-  
-      // Navigate to the GeneratedQRPage and pass QR details
-      navigation.navigate('GenerateQR', {
-        passengerType: 'Regular',
-        userId: userLoggedUid, // Pass the user's ID
-        qrValue: JSON.stringify({
-          userLoggedUid,
-          generatedUid,
-          username: randomUsername,
-          status:"enabled"
-        }),
-      });
-    } catch (error) {
-      console.error('Error generating temporary QR:', error);
-      Alert.alert('Error', 'Failed to generate QR code. Please try again.');
+const handleGenerate = async () => {
+  try {
+    const currentUser = auth().currentUser;
+    if (!currentUser) {
+      Alert.alert('Error', 'You must be logged in to generate a QR code.');
+      return;
     }
-  };
+
+    const userLoggedUid = currentUser.uid;
+    const todayDate = moment().format('YYYY-MM-DD'); 
+
+    // Reference for the counter storage
+    const counterRef = database().ref(`temporary/counter/${todayDate}`);
+
+    // Get the current counter value
+    const snapshot = await counterRef.once('value');
+    let counter = snapshot.exists() ? snapshot.val() + 1 : 1; // Increment if exists, reset otherwise
+
+    // Update counter in Firebase
+    await counterRef.set(counter);
+
+    // Generate an incremental username (e.g., "User_001", "User_002")
+    const formattedCounter = String(counter).padStart(3, '0'); // Ensures 3-digit format
+    const incrementalUsername = `${formattedCounter}`;
+
+    // Create a new temporary UID in Firebase for this QR
+    const tempRef = database().ref(`temporary/${userLoggedUid}`).push();
+    const generatedUid = tempRef.key;
+
+    // Save the temporary QR code data in Firebase
+    const tempData = {
+      createdAt: new Date().toISOString(),
+      type: 'Regular',
+      username: incrementalUsername, // Use the incremental username
+      status: 'enabled',
+    };
+
+    await tempRef.set(tempData);
+
+    console.log(`Temporary QR Code generated: ${generatedUid} with Username: ${incrementalUsername}`);
+
+    // Navigate to the GeneratedQRPage and pass QR details
+    navigation.navigate('GenerateQR', {
+      passengerType: 'Regular',
+      userId: userLoggedUid, // Pass the user's ID
+      qrValue: JSON.stringify({
+        userLoggedUid,
+        generatedUid,
+        username: incrementalUsername,
+        status: 'enabled',
+      }),
+    });
+  } catch (error) {
+    console.error('Error generating temporary QR:', error);
+    Alert.alert('Error', 'Failed to generate QR code. Please try again.');
+  }
+};
   
   
   return (
@@ -185,7 +188,7 @@ const saveQrCode = async () => {
               <Text style={styles.loadingText}>Generating QR...</Text>
             )}
           </View>
-          <Text style={styles.note}>Transfer fees may apply</Text>
+         
         </View>
       </ViewShot>
 

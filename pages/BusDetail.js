@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, Image, ActivityIndicator } from 'react-native';
+import { StyleSheet, View, Text, Image, ActivityIndicator, Alert } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
 import auth from '@react-native-firebase/auth';
@@ -9,6 +9,7 @@ const CheckSeatScreen = () => {
   const navigation = useNavigation();
   const [jeepDetails, setJeepDetails] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isOutOfService, setIsOutOfService] = useState(false);
 
   useEffect(() => {
     const fetchJeepDetails = async () => {
@@ -24,19 +25,33 @@ const CheckSeatScreen = () => {
         }
 
         const uid = currentUser.uid;
+        const jeepneysRef = database().ref('jeepneys').orderByChild('driver').equalTo(uid);
 
-         const jeepneysRef = database().ref('jeepneys');
-        const snapshot = await jeepneysRef.orderByChild('driver').equalTo(uid).once('value');
+        // Listen for real-time updates
+        const onValueChange = jeepneysRef.on('value', (snapshot) => {
+          if (snapshot.exists()) {
+            const jeepData = Object.values(snapshot.val())[0];
 
-        if (snapshot.exists()) {
-           const jeepData = Object.values(snapshot.val())[0];
-          setJeepDetails(jeepData);
-        } else {
-          console.warn('No jeepney assigned to this driver');
-        }
+            // If jeepney is out-of-service, trigger alert & update UI
+            if (jeepData.status === 'out-of-service') {
+              Alert.alert('🚨 Out of Service', 'This jeepney is currently out of service.');
+              setIsOutOfService(true);
+              setJeepDetails(null); // Hide details
+            } else {
+              setIsOutOfService(false);
+              setJeepDetails(jeepData);
+            }
+          } else {
+            console.warn('No jeepney assigned to this driver');
+            setJeepDetails(null);
+          }
+          setLoading(false);
+        });
+
+        // Cleanup listener when component unmounts
+        return () => jeepneysRef.off('value', onValueChange);
       } catch (error) {
         console.error('Error fetching jeepney details:', error);
-      } finally {
         setLoading(false);
       }
     };
@@ -73,6 +88,8 @@ const CheckSeatScreen = () => {
           <View style={styles.cardContent}>
             {loading ? (
               <ActivityIndicator size="large" color="#0000ff" />
+            ) : isOutOfService ? (
+              <Text style={styles.outOfServiceText}>🚨 Out of Service 🚨</Text>
             ) : jeepDetails ? (
               <>
                 <View style={styles.detailItem}>
@@ -91,7 +108,6 @@ const CheckSeatScreen = () => {
                   <Text style={styles.bold}>Route:</Text>
                   <Text style={styles.detailValue}>{jeepDetails.route || 'N/A'}</Text>
                 </View>
-             
               </>
             ) : (
               <Text style={styles.noDetailsText}>No jeepney details available.</Text>
@@ -156,14 +172,16 @@ const styles = StyleSheet.create({
   },
   cardContent: {
     padding: 20,
+    alignItems: 'center',
   },
   detailItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',  
+    justifyContent: 'space-between',
     alignItems: 'center',
     borderBottomWidth: 1,
     borderBottomColor: '#CCC',
     paddingVertical: 15,
+    width: '100%',
   },
   bold: {
     fontWeight: 'bold',
@@ -175,13 +193,20 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: '#000',
     textAlign: 'center',
-    flex: 1,  
+    flex: 1,
   },
   noDetailsText: {
     fontSize: 16,
     color: '#888',
     textAlign: 'center',
     marginTop: 10,
+  },
+  outOfServiceText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'red',
+    textAlign: 'center',
+    marginVertical: 20,
   },
 });
 

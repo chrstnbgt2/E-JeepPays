@@ -35,7 +35,7 @@ const MyQRScreenShare = () => {
             quietZone={10}
           />
         </View>
-        <Text style={styles.note}>Transfer fees may apply</Text>
+ 
       </View>
 
       {/* Action Buttons */}

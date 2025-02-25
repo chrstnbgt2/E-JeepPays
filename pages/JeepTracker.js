@@ -8,6 +8,7 @@ import {
   ScrollView,
   RefreshControl,
   TouchableOpacity,
+  
 } from 'react-native';
 import MapboxGL from '@rnmapbox/maps';
 import Geolocation from 'react-native-geolocation-service';
@@ -20,8 +21,7 @@ MapboxGL.setAccessToken(MAPBOX_ACCESS_TOKEN);
 const JeepTrackerScreen = ({ navigation }) => {
   const [currentLocation, setCurrentLocation] = useState(null);
   const [nearbyJeepneys, setNearbyJeepneys] = useState([]);
-  const [isFollowingUser, setIsFollowingUser] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
+   const [isRefreshing, setIsRefreshing] = useState(false);
   const [firstLoad, setFirstLoad] = useState(true); // Track first load
   const cameraRef = useRef(null);
   const [selectedJeepney, setSelectedJeepney] = useState(null);
@@ -33,6 +33,7 @@ const JeepTrackerScreen = ({ navigation }) => {
   const handleViewDetails = () => {
     if (selectedJeepney) {
       navigation.navigate('JeepDetail', { jeepney: selectedJeepney });
+      setSelectedJeepney(null);
     }
   };
 

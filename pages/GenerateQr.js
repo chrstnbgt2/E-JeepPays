@@ -119,7 +119,7 @@ const GeneratedQRPage = ({ route, navigation }) => {
       <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1 }}>
         <View style={styles.card}>
           <Text style={styles.passengerType}>{`${passengerType} Passenger`}</Text>
-          <Text style={styles.userId}>User Id: {username || 'Loading...'}</Text>
+          <Text style={styles.userId}>Passenger No. : {username || 'Loading...'}</Text>
           <View style={styles.qrContainer}>
             {qrValue ? (
               <QRCode
@@ -135,7 +135,7 @@ const GeneratedQRPage = ({ route, navigation }) => {
               <Text style={styles.loadingText}>Generating QR...</Text>
             )}
           </View>
-          <Text style={styles.note}>Transfer fees may apply</Text>
+ 
         </View>
       </ViewShot>
 

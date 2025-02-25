@@ -250,6 +250,7 @@ const DiscountScreen = () => {
         Alert.alert('Error', 'You must be logged in to submit the form.');
         return;
       }
+      console.log("Current user:", auth().currentUser);
 
       const fileUrl = await uploadFileToStorage(selectedFile);
 
@@ -272,6 +273,14 @@ const DiscountScreen = () => {
         timestamp: Date.now(),
       });
 
+      await database().ref('/notification_web').push().set({
+        fullname: `${firstName} ${lastName}`,
+        status: 'unread',
+        message: `Passenger ${firstName} ${lastName} Request for a discount.`,
+        timestamp: new Date().toISOString(),
+      });
+
+
       Alert.alert('Success', 'Your discount form has been submitted successfully.');
       navigation.goBack();
     } catch (error) {
@@ -293,13 +302,17 @@ const DiscountScreen = () => {
   
   if (status === 'Pending') {
     return (
-      <View style={styles.container1}>
-       <View style={styles.header}>
+      <>
+          <View style={styles.header}>
          <TouchableOpacity onPress={() => navigation.goBack()}>
         <Ionicons name="arrow-back" size={24} color="#000" style={styles.backIcon}  />
-        <Text style={styles.headerTitle}>Go Back</Text>
+        <Text style={styles.headerTitle1}>Go Back</Text>
         </TouchableOpacity>
       </View>
+
+
+      <View style={styles.container1}>
+ 
 
         <View style={styles.statusCard}>
           <Ionicons name="hourglass" size={50} color="#F5A623" />
@@ -309,19 +322,23 @@ const DiscountScreen = () => {
           </Text>
         </View>
       </View>
+</>
     );
   }
 
   if (status === 'Approved') {
     return (
-      
-      <View style={styles.container1}>
+      <>
          <View style={styles.header}>
          <TouchableOpacity onPress={() => navigation.goBack()}>
         <Ionicons name="arrow-back" size={24} color="#000" style={styles.backIcon}  />
-        <Text style={styles.headerTitle}>Go Back</Text>
+        <Text style={styles.headerTitle1}>Go Back</Text>
         </TouchableOpacity>
       </View>
+      
+    
+      <View style={styles.container1}>
+   
 
         <View style={[styles.statusCard, { borderColor: '#4CAF50' }]}>
           <Ionicons name="checkmark-circle" size={50} color="#4CAF50" />
@@ -331,6 +348,8 @@ const DiscountScreen = () => {
           </Text>
         </View>
       </View>
+
+      </>
     );
   }
 
@@ -540,21 +559,42 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   header: {
+    backgroundColor: '#F4F4F4',
+    paddingVertical: 15,
     flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 10,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  backButton: {
+    marginRight: 10,
+  },
+  header1: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     backgroundColor: '#F4F4F4',
     paddingVertical: 15,
     paddingHorizontal: 15,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
+    elevation: 5,
   },
-  backIcon: {
-    marginRight: 10,
+ 
+  headerTitle1: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#000',
+    marginTop:-26,
+    marginLeft:30
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#000',
+    marginLeft:10
+ 
   },
   scrollContainer: {
     paddingHorizontal: 20,
