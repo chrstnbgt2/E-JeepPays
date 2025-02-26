@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   FlatList,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -125,78 +126,106 @@ const DisplayAllQR_Conductor = () => {
 
   const handleStartTrip = async (item) => {
     try {
+      setLoading((prev) => ({ ...prev, [item.key]: true })); // ✅ Set loading for this trip
+
       const currentUser = auth().currentUser;
       if (!currentUser) {
-        Alert.alert('Error', 'Conductor is not logged in.');
+        Alert.alert("Error", "Conductor is not logged in.");
         return;
       }
   
       const conductorUid = currentUser.uid;
   
-       const tripRef = database().ref(`/trips/temporary/${conductorUid}/${item.key}`);
-      const tripSnapshot = await tripRef.once('value');
-      if (tripSnapshot.exists() && tripSnapshot.val().status === 'in-progress') {
-        Alert.alert('Error', 'This trip is already in progress.');
+      // 🔍 **Check if Trip is Already in Progress**
+      const tripRef = database().ref(`/trips/temporary/${conductorUid}/${item.key}`);
+      const tripSnapshot = await tripRef.once("value");
+      if (tripSnapshot.exists() && tripSnapshot.val().status === "in-progress") {
+        Alert.alert("Error", "This trip is already in progress.");
         return;
       }
   
-       const location = await getLocation();
-      if (!location) throw new Error('Failed to retrieve location.');
-  
-      const { latitude, longitude } = location;
-  
-       const conductorRef = database().ref(`/users/accounts/${conductorUid}`);
-      const conductorSnapshot = await conductorRef.once('value');
+      // 🔍 **Fetch Conductor's Wallet Balance**
+      const conductorRef = database().ref(`/users/accounts/${conductorUid}`);
+      const conductorSnapshot = await conductorRef.once("value");
       const conductorData = conductorSnapshot.val();
   
+      if (!conductorData) {
+        Alert.alert("Error", "Conductor account not found.");
+        return;
+      }
+  
+      let conductorBalance = conductorData.wallet_balance || 0;
+  
+      // ❌ **Prevent Trip Start if Balance is Below ₱100**
+      const MIN_REQUIRED_BALANCE = 100; 
+      if (conductorBalance < MIN_REQUIRED_BALANCE) {
+        Alert.alert(
+          "Insufficient Balance",
+          `Your wallet balance is too low (₱${conductorBalance.toFixed(
+            2
+          )}). You need at least ₱100 to start a trip. Please top up first.`
+        );
+        return;
+      }
+  
+      // ✅ **Get Current Location**
+      const location = await getLocation();
+      if (!location) throw new Error("Failed to retrieve location.");
+      const { latitude, longitude } = location;
+  
+      // ✅ **Fetch Jeepney Data**
       const driverUid = conductorData.creatorUid;
       const driverRef = database().ref(`/users/accounts/${driverUid}`);
-      const driverSnapshot = await driverRef.once('value');
+      const driverSnapshot = await driverRef.once("value");
       const driverData = driverSnapshot.val();
   
       const jeepneyId = driverData.jeep_assigned;
       const jeepneyRef = database().ref(`/jeepneys/${jeepneyId}`);
-      const jeepneySnapshot = await jeepneyRef.once('value');
+      const jeepneySnapshot = await jeepneyRef.once("value");
   
       if (!jeepneySnapshot.exists()) {
-        Alert.alert('Error', 'Jeepney not found.');
+        Alert.alert("Error", "Jeepney not found.");
         return;
       }
   
       let jeepneyData = jeepneySnapshot.val();
       if (jeepneyData.currentCapacity <= 0) {
-        Alert.alert('Error', 'The jeepney is full.');
+        Alert.alert("Error", "The jeepney is full.");
         return;
       }
   
-      // Deduct one seat
+      // ✅ **Deduct One Seat**
       const updatedCapacity = jeepneyData.currentCapacity - 1;
       await jeepneyRef.update({ currentCapacity: updatedCapacity });
   
-      // Save trip data in Firebase
+      // ✅ **Save Trip Data in Firebase**
       await tripRef.set({
         start_loc: { latitude, longitude },
         stop_loc: null,
         distance: 0,
         payment: 0,
-        status: 'in-progress',
+        status: "in-progress",
         type: item.type,
         timestamp: Date.now(),
       });
   
       Alert.alert(
-        'Trip Started',
+        "Trip Started",
         `Trip for ${item.username} has been successfully started. Seats remaining: ${updatedCapacity}`
       );
     } catch (error) {
-      console.error('Error starting trip:', error);
-      Alert.alert('Error', 'Failed to start the trip.');
+      console.error("Error starting trip:", error);
+      Alert.alert("Error", "Failed to start the trip.");
+    }finally {
+      setLoading((prev) => ({ ...prev, [item.key]: false }));  
     }
   };
   
   
+  
   const handleStopTrip = async (item) => {
     try {
+      setLoading((prev) => ({ ...prev, [item.key]: true }));  
       const currentUser = auth().currentUser;
       if (!currentUser) {
         Alert.alert('Error', 'Conductor is not logged in.');
@@ -333,6 +362,8 @@ const DisplayAllQR_Conductor = () => {
     } catch (error) {
       console.error('Error stopping trip:', error);
       Alert.alert('Error', 'Failed to stop the trip.');
+    }finally {
+      setLoading((prev) => ({ ...prev, [item.key]: false })); // ✅ Clear loading state
     }
   };
   
@@ -342,6 +373,7 @@ const DisplayAllQR_Conductor = () => {
   
   const renderTripButton = (item) => {
     const isItemInProgress = item.status === 'in-progress';  
+    const isLoading = loading[item.key]; // ✅ Check if this item is loading
   
     return (
       <View style={styles.buttonContainer}>
@@ -349,8 +381,13 @@ const DisplayAllQR_Conductor = () => {
           <TouchableOpacity
             style={[styles.tripButton, styles.startButton]}
             onPress={() => handleStartTrip(item)}
+            disabled={isLoading} // ✅ Disable button while loading
           >
-            <Text style={styles.buttonText}>Start Trip</Text>
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#FFF" /> // ✅ Show loading indicator
+            ) : (
+              <Text style={styles.buttonText}>Start Trip</Text>
+            )}
           </TouchableOpacity>
         )}
         {isItemInProgress && (
@@ -358,21 +395,27 @@ const DisplayAllQR_Conductor = () => {
             style={[styles.tripButton, styles.stopButton]}
             onPress={() =>
               Alert.alert(
-                'Stop Trip',
+                "Stop Trip",
                 `Are you sure you want to stop the trip for ${item.username}?`,
                 [
-                  { text: 'Cancel', style: 'cancel' },
-                  { text: 'Yes, Stop', onPress: () => handleStopTrip(item) },
+                  { text: "Cancel", style: "cancel" },
+                  { text: "Yes, Stop", onPress: () => handleStopTrip(item) },
                 ]
               )
             }
+            disabled={isLoading} // ✅ Disable button while loading
           >
-            <Text style={styles.buttonText}>Stop Trip</Text>
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#FFF" /> // ✅ Show loading indicator
+            ) : (
+              <Text style={styles.buttonText}>Stop Trip</Text>
+            )}
           </TouchableOpacity>
         )}
       </View>
     );
   };
+  
   
   return (
     <View style={styles.container}>

@@ -26,69 +26,69 @@ const HomeScreenConductor = () => {
  
   
   useEffect(() => {
-    let userRef, jeepneyStatsRef, transactionsRef, driverRef;
+    let userRef, jeepneyStatsRef, transactionsRef, driverRef, notificationRef;
   
     const fetchUserAndStats = async () => {
       try {
         const currentUser = auth().currentUser;
         if (!currentUser) {
-          console.warn('No user is currently logged in.');
+          console.warn("No user is currently logged in.");
           return;
         }
   
         const conductorUid = currentUser.uid;
         userRef = database().ref(`users/accounts/${conductorUid}`);
   
-        // ✅ Real-time listener for user details
-        userRef.on('value', (snapshot) => {
+        // ✅ Real-time listener for conductor details & wallet balance
+        userRef.on("value", (snapshot) => {
           if (!snapshot.exists()) {
-            console.warn('No user data found.');
+            console.warn("No user data found.");
             return;
           }
   
           const userData = snapshot.val();
-          setUsername(userData.firstName || 'User');
-          setWalletBalance(userData.wallet_balance?.toFixed(2) || '0.00');
+          setUsername(userData.firstName || "User");
+          setWalletBalance(userData.wallet_balance?.toFixed(2) || "0.00"); // ✅ Realtime wallet balance update
   
           const driverUid = userData.creatorUid;
           if (!driverUid) {
-            console.warn('No linked driver found.');
+            console.warn("No linked driver found.");
             return;
           }
   
-          // ✅ Fetch driver details in real-time
+          // ✅ Real-time listener for driver details
           driverRef = database().ref(`/users/accounts/${driverUid}`);
-          driverRef.on('value', (driverSnapshot) => {
+          driverRef.on("value", (driverSnapshot) => {
             if (!driverSnapshot.exists()) {
-              console.warn('Driver account not found.');
+              console.warn("Driver account not found.");
               return;
             }
   
             const driverData = driverSnapshot.val();
             const jeepneyUid = driverData.jeep_assigned;
             if (!jeepneyUid) {
-              console.warn('No jeepney assigned.');
+              console.warn("No jeepney assigned.");
               return;
             }
   
-            const today = new Date().toISOString().split('T')[0];
+            const today = new Date().toISOString().split("T")[0];
             jeepneyStatsRef = database().ref(`/jeepneys/${jeepneyUid}/dailyStats/${today}`);
   
-            // ✅ Real-time listener for daily stats (total income and passengers)
-            jeepneyStatsRef.on('value', (statsSnapshot) => {
+            // ✅ Real-time listener for daily income & passengers
+            jeepneyStatsRef.on("value", (statsSnapshot) => {
               if (statsSnapshot.exists()) {
                 const statsData = statsSnapshot.val();
                 setTotalPassengers(statsData.totalPassengers || 0);
                 setTotalIncome(parseFloat(statsData.totalIncome || 0).toFixed(2));
               } else {
                 setTotalPassengers(0);
-                setTotalIncome('0.00');
+                setTotalIncome("0.00");
               }
             });
   
-            // ✅ Fetch latest 5 transactions in real-time
+            // ✅ Real-time listener for latest 5 transactions
             transactionsRef = database().ref(`users/accounts/${conductorUid}/transactions`);
-            transactionsRef.on('value', (snapshot) => {
+            transactionsRef.on("value", (snapshot) => {
               if (!snapshot.exists()) {
                 setLatestTransactions([]);
                 return;
@@ -100,7 +100,6 @@ const HomeScreenConductor = () => {
                 ...transactionData[key],
               }));
   
-              // ✅ Sort transactions by the most recent first
               const latestTransactions = transactionList
                 .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                 .slice(0, 5);
@@ -109,21 +108,35 @@ const HomeScreenConductor = () => {
             });
           });
         });
+  
+        // ✅ Real-time listener for unread notifications
+        notificationRef = database().ref(`notification_user/${conductorUid}`);
+        notificationRef.on("value", (snapshot) => {
+          if (snapshot.exists()) {
+            const notifications = Object.values(snapshot.val());
+            const unreadCount = notifications.filter((notif) => notif.status === "unread").length;
+            setUnreadNotifications(unreadCount);
+          } else {
+            setUnreadNotifications(0);
+          }
+        });
       } catch (error) {
-        console.error('Error fetching user and stats:', error);
+        console.error("Error fetching user and stats:", error);
       }
     };
   
     fetchUserAndStats();
   
-    // ✅ Cleanup function to remove all listeners
+    // ✅ Cleanup: Remove all real-time listeners when component unmounts
     return () => {
       if (userRef) userRef.off();
       if (jeepneyStatsRef) jeepneyStatsRef.off();
       if (transactionsRef) transactionsRef.off();
       if (driverRef) driverRef.off();
+      if (notificationRef) notificationRef.off();
     };
   }, []);
+  
   
   
   

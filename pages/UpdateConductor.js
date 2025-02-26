@@ -76,8 +76,8 @@ const EditConductor = ({ route }) => {
   const handleDelete = async () => {
     try {
       await database().ref(`users/accounts/${account.id}`).update({
-        creatorUid:"unassigned", // Set to null
-        status:"Inactive"
+        creatorUid:"unassigned", 
+        status:"deactivated"
       });
   
       Alert.alert('Success', 'Conductor removed successfully.');

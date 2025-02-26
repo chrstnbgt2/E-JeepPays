@@ -171,15 +171,15 @@ const RegisterScreen2 = () => {
           </View>
           {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
  {/* Terms and Conditions Checkbox */}
- <TouchableOpacity onPress={() => setAgreed(!agreed)} style={styles.checkboxContainer}>
-    <Ionicons name={agreed ? "checkbox" : "square-outline"} size={24} color="#A5BE7D" />
-    <Text style={styles.checkboxText}>
-      I accept the 
-      <Text style={styles.termsLink} onPress={() => navigation.navigate("TermsAndConditions")}>
-        Terms & Conditions
-      </Text>
-    </Text>
-  </TouchableOpacity>
+          <TouchableOpacity onPress={() => setAgreed(!agreed)} style={styles.checkboxContainer}>
+              <Ionicons name={agreed ? "checkbox" : "square-outline"} size={24} color="#A5BE7D" />
+              <Text style={styles.checkboxText}>
+                I accept the 
+                <Text style={styles.termsLink} onPress={() => navigation.navigate("TermsAndConditions")}>
+                  Terms & Conditions
+                </Text>
+              </Text>
+            </TouchableOpacity>
           <TouchableOpacity style={[styles.registerButton, (!agreed || loading) && styles.disabledButton]} onPress={handleRegister} disabled={!agreed || loading}>
             {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.registerButtonText}>Register</Text>}
           </TouchableOpacity>
@@ -214,7 +214,8 @@ const styles = StyleSheet.create({
   checkboxContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 5,
+    marginTop:10
   },
   checkboxText: {
     marginLeft: 10,

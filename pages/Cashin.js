@@ -89,6 +89,10 @@ const CashInScreen = () => {
       return;
     }
   
+    if (Number(amount) <= 19) {
+      Alert.alert('Information', 'Minimum Required is ₱ 20.00, Please enter higher amount.');
+      return;
+    }
     setLoading(true);
   
     try {

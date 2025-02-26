@@ -53,11 +53,11 @@ const ProfileScreenConductor = () => {
         <Ionicons name="chevron-forward-outline" size={20} color="#000" />
       </TouchableOpacity>
      
-      <TouchableOpacity style={styles.menuItem}>
+      <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('TermsAndConditions')}>
         <Ionicons name="pricetags-outline" size={24} color="#000" />
         <Text style={styles.menuText}>Terms and Conditions</Text>
         <Ionicons name="chevron-forward-outline" size={20} color="#000" />
-      </TouchableOpacity>
+      </TouchableOpacity> 
 
       <TouchableOpacity style={styles.menuItem} onPress={() => navigation.navigate('Settings')}>
         <Ionicons name="settings-outline" size={24} color="#000" />

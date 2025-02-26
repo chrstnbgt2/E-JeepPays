@@ -78,12 +78,12 @@ const LoginScreen = () => {
       const userStatus = userData.status || 'active';
   
       // ✅ Restrict login for inactive conductors
-      // if (userRole === 'conductor' && userStatus.toLowerCase() === 'inactive') {
-      //   Alert.alert('Account Deactivated', 'Your account is deactivated. Please contact support.');
-      //   await auth().signOut();
-      //   setIsLoading(false);
-      //   return;
-      // }
+      if (userRole === 'conductor' && userStatus === 'Deactivated') {
+        Alert.alert('Account Deactivated', 'Your account is deactivated. Please contact support.');
+        await auth().signOut();
+        setIsLoading(false);
+        return;
+      }
   
       // ✅ Store user session in AsyncStorage for persistence
       await AsyncStorage.setItem(

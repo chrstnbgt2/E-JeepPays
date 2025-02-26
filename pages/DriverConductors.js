@@ -27,6 +27,7 @@ const Conductors = () => {
   const [addConductorModalVisible, setAddConductorModalVisible] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState(null);
 
 
   const fetchConductors = async () => {
@@ -101,9 +102,13 @@ const Conductors = () => {
   };
 
   const openStatusModal = () => {
+    if (selectedAccount) {
+      setSelectedStatus(selectedAccount.status); // ✅ Set the selected status
+    }
     setStatusModalVisible(true);
     setModalVisible(false);
   };
+  
 
   const closeStatusModal = () => {
     setStatusModalVisible(false);
@@ -300,32 +305,44 @@ const Conductors = () => {
 
       {/* Status Modal */}
       <Modal
-        visible={statusModalVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={closeStatusModal}
+  visible={statusModalVisible}
+  transparent={true}
+  animationType="fade"
+  onRequestClose={closeStatusModal}
+>
+  <View style={styles.modalOverlay}>
+    <View style={styles.statusModalContainer}>
+      <TouchableOpacity style={styles.modalClose} onPress={closeStatusModal}>
+        <Ionicons name="close" size={24} color="#000" />
+      </TouchableOpacity>
+
+      <Text style={styles.statusModalTitle}>Set Status</Text>
+
+      {/* ✅ Active Status Button (Highlights if selected) */}
+      <TouchableOpacity
+        style={[
+          styles.statusOption,
+          selectedStatus === 'Active' && styles.selectedStatus, // ✅ Highlight if Active
+        ]}
+        onPress={() => updateStatus('Active')}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.statusModalContainer}>
-            <TouchableOpacity style={styles.modalClose} onPress={closeStatusModal}>
-              <Ionicons name="close" size={24} color="#000" />
-            </TouchableOpacity>
-            <Text style={styles.statusModalTitle}>Set Status</Text>
-            <TouchableOpacity
-              style={styles.statusOption}
-              onPress={() => updateStatus('Active')}
-            >
-              <Text style={styles.statusOptionText}>ACTIVE</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.statusOption}
-              onPress={() => updateStatus('Inactive')}
-            >
-              <Text style={styles.statusOptionText}>INACTIVE</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+        <Text style={styles.statusOptionText}>ACTIVE</Text>
+      </TouchableOpacity>
+
+      {/* ✅ Inactive Status Button (Highlights if selected) */}
+      <TouchableOpacity
+        style={[
+          styles.statusOption,
+          selectedStatus === 'Inactive' && styles.selectedStatus, // ✅ Highlight if Inactive
+        ]}
+        onPress={() => updateStatus('Inactive')}
+      >
+        <Text style={styles.statusOptionText}>INACTIVE</Text>
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
+
     </View>
   );
 };
@@ -530,6 +547,9 @@ const styles = StyleSheet.create({
     color: '#757575',
     textAlign: 'center',
     marginTop: 20,
+  },
+  selectedStatus: {
+    backgroundColor: '#A5BE7D', // ✅ Green background for the selected status
   },
   
 });
