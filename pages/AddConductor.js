@@ -195,7 +195,8 @@ const CreateConductor = () => {
         style={styles.modalButton}
         onPress={() => {
           setSuccessModal(false);
-          navigation.goBack();
+          navigation.navigate('Driver', { screen: 'Profile' });
+
         }}
       >
         <Text style={styles.modalButtonText}>Go Back</Text>

@@ -30,6 +30,7 @@ const RegisterScreen2 = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState({});
+  const [agreed, setAgreed] = useState(false);
 
   const sanitizeInput = (input) => input.replace(/[<>]/g, '');
 
@@ -169,10 +170,20 @@ const RegisterScreen2 = () => {
             </TouchableOpacity>
           </View>
           {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
-
-          <TouchableOpacity style={[styles.registerButton, loading && styles.disabledButton]} onPress={handleRegister} disabled={loading}>
+ {/* Terms and Conditions Checkbox */}
+ <TouchableOpacity onPress={() => setAgreed(!agreed)} style={styles.checkboxContainer}>
+    <Ionicons name={agreed ? "checkbox" : "square-outline"} size={24} color="#A5BE7D" />
+    <Text style={styles.checkboxText}>
+      I accept the 
+      <Text style={styles.termsLink} onPress={() => navigation.navigate("TermsAndConditions")}>
+        Terms & Conditions
+      </Text>
+    </Text>
+  </TouchableOpacity>
+          <TouchableOpacity style={[styles.registerButton, (!agreed || loading) && styles.disabledButton]} onPress={handleRegister} disabled={!agreed || loading}>
             {loading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.registerButtonText}>Register</Text>}
           </TouchableOpacity>
+          
         </View>
 
         <Image source={require('../assets/images/bot-curve.png')} style={styles.bottomCurve} resizeMode="cover" />
@@ -196,6 +207,29 @@ const styles = StyleSheet.create({
   passwordInput: { flex: 1, paddingVertical: 10, fontSize: 16, color: '#000' },
   errorText: { color: '#FF6B6B', alignSelf: 'flex-start', marginBottom: 5 },
   registerButton: { backgroundColor: '#8FCB81', padding: 15, borderRadius: 25, width: '100%', alignItems: 'center', marginTop: 20 },
+  footer: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  checkboxText: {
+    marginLeft: 10,
+    fontSize: 14,
+    color: '#FFF',
+  },
+  termsLink: {
+    color: '#A5BE7D',
+    fontWeight: 'bold',
+    textDecorationLine: 'underline',
+  },
+  disabledButton: {
+    backgroundColor: '#CCC',
+  },
+  
 });
 
 export default RegisterScreen2;

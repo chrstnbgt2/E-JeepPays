@@ -12,42 +12,25 @@ export const AuthProvider = ({ children }) => {
 
   // ✅ Load user session when app starts
   useEffect(() => {
-    const loadUser = async () => {
-      try {
-        setLoading(true);
-        
-        // Check stored user session
-        const storedUser = await AsyncStorage.getItem("userData");
-        if (storedUser) {
-          const user = JSON.parse(storedUser);
-          setIsLoggedIn(true);
-          setRole(user.role);
-        }
-      } catch (error) {
-        console.error("❌ Error loading user data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadUser();
-
-    // ✅ Track Firebase Authentication Changes in Real-Time
+    setLoading(true);
+    
     const unsubscribe = auth().onAuthStateChanged(async (user) => {
       if (user) {
         console.log("✅ User logged in:", user.uid);
-        await fetchUserRole(user.uid); // Fetch role in real-time
+        await fetchUserRole(user.uid);  
+        setIsLoggedIn(true);
       } else {
         console.log("❌ User logged out");
         setIsLoggedIn(false);
-        setRole(null);
+        setRole("user");
         await AsyncStorage.removeItem("userData");
       }
+      setLoading(false);
     });
-
+  
     return () => unsubscribe(); // Cleanup listener
   }, []);
-
+  
   // ✅ Fetch User Role from Firebase
   const fetchUserRole = async (userId) => {
     try {
@@ -69,15 +52,20 @@ export const AuthProvider = ({ children }) => {
   };
 
   // ✅ Login function
-  const login = async (user) => {
+  const login = async (email, password) => {
     try {
-      await AsyncStorage.setItem("userData", JSON.stringify(user));
+      const userCredential = await auth().signInWithEmailAndPassword(email, password);
+      const user = userCredential.user;
+  
+      console.log("✅ Firebase Login Successful:", user.uid);
+      await fetchUserRole(user.uid); // ✅ Fetch role after login
+  
       setIsLoggedIn(true);
-      setRole(user.role);
     } catch (error) {
-      console.error("❌ Error saving login data:", error);
+      console.error("❌ Login Error:", error.message);
     }
   };
+  
 
   // ✅ Logout function
   const logout = async (navigation) => {

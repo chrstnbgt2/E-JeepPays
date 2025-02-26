@@ -1,0 +1,107 @@
+[33m20890e6[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m HEAD@{0}: pull --tags origin main: Merge made by the 'ort' strategy.
+[33m644ee53[m HEAD@{1}: commit: Restored files from commit d3425d7
+[33md3425d7[m HEAD@{2}: reset: moving to d3425d7
+[33mf88adae[m HEAD@{3}: reset: moving to f88adae
+[33mf88adae[m HEAD@{4}: reset: moving to f88adae
+[33m11bded9[m HEAD@{5}: rebase (abort): returning to refs/heads/main
+[33m11bded9[m HEAD@{6}: rebase (abort): returning to refs/heads/main
+[33m11bded9[m HEAD@{7}: rebase (finish): returning to refs/heads/main
+[33m11bded9[m HEAD@{8}: rebase (pick): Revert "Major update"
+[33mff604b5[m HEAD@{9}: rebase (start): checkout HEAD~5
+[33mf88adae[m HEAD@{10}: reset: moving to f88adae
+[33me057715[m HEAD@{11}: reset: moving to e057715
+[33mf88adae[m HEAD@{12}: pull --tags origin main: Fast-forward
+[33me057715[m HEAD@{13}: reset: moving to e057715
+[33mf88adae[m HEAD@{14}: pull --tags origin main: Fast-forward
+[33mff604b5[m HEAD@{15}: rebase (finish): returning to refs/heads/main
+[33mff604b5[m HEAD@{16}: rebase (start): checkout HEAD~5
+[33mf88adae[m HEAD@{17}: pull --tags origin main: Fast-forward
+[33me057715[m HEAD@{18}: rebase (finish): returning to refs/heads/main
+[33me057715[m HEAD@{19}: rebase (start): checkout HEAD~5
+[33md3425d7[m HEAD@{20}: rebase (abort): returning to refs/heads/main
+[33md3425d7[m HEAD@{21}: rebase (abort): returning to refs/heads/main
+[33mf88adae[m HEAD@{22}: revert: Revert "Major update"
+[33mdef4d14[m HEAD@{23}: pull --tags origin main: Merge made by the 'ort' strategy.
+[33mff604b5[m HEAD@{24}: commit (amend): major update
+[33md3425d7[m HEAD@{25}: commit: Major update
+[33me057715[m HEAD@{26}: commit: Changes bug fix
+[33m3424b1d[m HEAD@{27}: commit: Add Icon Update Fix bugs
+[33m07712c2[m HEAD@{28}: commit: UPdate location fix
+[33m6df8d6d[m HEAD@{29}: commit: updated v2 add search bar to all qr code
+[33mc2dbf57[m HEAD@{30}: commit: fix
+[33mc29b535[m HEAD@{31}: commit: Update Fix android 12+ saving image
+[33m32bc037[m HEAD@{32}: rebase (abort): returning to refs/heads/main
+[33m625d100[m HEAD@{33}: rebase (start): checkout HEAD~10
+[33m32bc037[m HEAD@{34}: commit (cherry-pick): bug fix add dashboard
+[33m144c91d[m HEAD@{35}: rebase (abort): returning to refs/heads/main
+[33m144c91d[m HEAD@{36}: rebase (abort): returning to refs/heads/main
+[33m144c91d[m HEAD@{37}: commit (cherry-pick): update
+[33mfd18a5f[m[33m ([m[1;31mnew-remote/main[m[33m)[m HEAD@{38}: rebase (abort): returning to refs/heads/main
+[33mfd18a5f[m[33m ([m[1;31mnew-remote/main[m[33m)[m HEAD@{39}: rebase (abort): returning to refs/heads/main
+[33mfd18a5f[m[33m ([m[1;31mnew-remote/main[m[33m)[m HEAD@{40}: reset: moving to fd18a5f
+[33m7d0be22[m HEAD@{41}: rebase (finish): returning to refs/heads/main
+[33m7d0be22[m HEAD@{42}: rebase (pick): update
+[33m0e18c82[m HEAD@{43}: rebase (pick): Delete .env
+[33m52a62bd[m HEAD@{44}: rebase (start): checkout HEAD~10
+[33mfd18a5f[m[33m ([m[1;31mnew-remote/main[m[33m)[m HEAD@{45}: reset: moving to fd18a5f
+[33m395be4f[m HEAD@{46}: rebase (abort): returning to refs/heads/main
+[33m395be4f[m HEAD@{47}: rebase (abort): returning to refs/heads/main
+[33m395be4f[m HEAD@{48}: commit (merge): Merge branch 'main' of https://github.com/chrstnbgt2/E-JeepPays
+[33m30e5a9c[m HEAD@{49}: rebase (finish): returning to refs/heads/main
+[33m30e5a9c[m HEAD@{50}: rebase (start): checkout HEAD~10
+[33m30e5a9c[m HEAD@{51}: rebase (finish): returning to refs/heads/main
+[33m30e5a9c[m HEAD@{52}: rebase (pick): Update bugs
+[33m1a2e3ec[m HEAD@{53}: rebase (pick): update
+[33m51de20a[m HEAD@{54}: rebase (pick): Delete .env
+[33m52a62bd[m HEAD@{55}: rebase (start): checkout HEAD~4
+[33maeb3cac[m HEAD@{56}: rebase (abort): returning to refs/heads/main
+[33maeb3cac[m HEAD@{57}: rebase (abort): returning to refs/heads/main
+[33maeb3cac[m HEAD@{58}: rebase (finish): returning to refs/heads/main
+[33maeb3cac[m HEAD@{59}: rebase (start): checkout HEAD~3
+[33mf3986e1[m HEAD@{60}: rebase (abort): returning to refs/heads/main
+[33mf3986e1[m HEAD@{61}: rebase (abort): returning to refs/heads/main
+[33mf3986e1[m HEAD@{62}: rebase (abort): returning to refs/heads/main
+[33mf3986e1[m HEAD@{63}: rebase (abort): returning to refs/heads/main
+[33mf3986e1[m HEAD@{64}: rebase (abort): returning to refs/heads/main
+[33mf3986e1[m HEAD@{65}: rebase (abort): returning to refs/heads/main
+[33mf3986e1[m HEAD@{66}: commit: Revert "Merge branch 'main' of https://github.com/ShadowWW1234/E-jeep-Pay"
+[33m58a7e10[m HEAD@{67}: rebase (abort): returning to refs/heads/main
+[33m58a7e10[m HEAD@{68}: rebase (abort): returning to refs/heads/main
+[33m58a7e10[m HEAD@{69}: rebase (abort): returning to refs/heads/main
+[33m58a7e10[m HEAD@{70}: rebase (abort): returning to refs/heads/main
+[33m58a7e10[m HEAD@{71}: rebase (abort): returning to refs/heads/main
+[33m58a7e10[m HEAD@{72}: rebase (abort): returning to refs/heads/main
+[33m58a7e10[m HEAD@{73}: filter-branch: rewrite
+[33m0c1423e[m HEAD@{74}: Branch: renamed refs/heads/main to refs/heads/main
+[33m0c1423e[m HEAD@{76}: checkout: moving from main to main
+[33m0c1423e[m HEAD@{77}: checkout: moving from main to main
+[33m0c1423e[m HEAD@{78}: commit: update fix
+[33m7ea06ef[m HEAD@{79}: commit: Update bugs
+[33m146fe39[m HEAD@{80}: Branch: renamed refs/heads/main to refs/heads/main
+[33m146fe39[m HEAD@{82}: commit: update
+[33m498ea31[m HEAD@{83}: pull --tags origin main: Merge made by the 'ort' strategy.
+[33m50b57d6[m HEAD@{84}: commit: remove .env
+[33m808eda8[m HEAD@{85}: Branch: renamed refs/heads/main to refs/heads/main
+[33m808eda8[m HEAD@{87}: Branch: renamed refs/heads/main to refs/heads/main
+[33m808eda8[m HEAD@{89}: commit: bug fix add dashboard
+[33mb5ac0ea[m HEAD@{90}: commit: Add Payment Sand Box using Pay mongo
+[33mb25e3a4[m HEAD@{91}: commit: Major Update
+[33mb67f8c3[m HEAD@{92}: commit: updated details and update qr generated by conductor
+[33m63dfbc0[m HEAD@{93}: commit: update Distance generator add refresh on the map and others
+[33m32f28a4[m HEAD@{94}: commit: bug fix map updated scan
+[33m786755a[m HEAD@{95}: commit: update conductor and share qr generate and upload qr decoding
+[33m680bed9[m HEAD@{96}: commit: UPDATE REALTIME TRACKING
+[33m439ee6a[m HEAD@{97}: commit: user qr updatedaccount discount
+[33m90dbbed[m HEAD@{98}: commit: add back end sync with web
+[33m4396b71[m HEAD@{99}: commit: Add backend to Add conductor retrieve conductor
+[33m1b1cc43[m HEAD@{100}: commit: add backend to login auth centralized
+[33mf38febf[m HEAD@{101}: commit: Updated last design
+[33m2a726eb[m HEAD@{102}: commit: QR code / scan added
+[33mb47b788[m HEAD@{103}: commit: Update add conductor
+[33mab524c5[m HEAD@{104}: commit: add driver pages
+[33m111b17a[m HEAD@{105}: commit: Update New Bottom tabs
+[33m769ddfb[m HEAD@{106}: commit: up3
+[33m7eb4bd3[m HEAD@{107}: commit: updated p2
+[33m28d1ef5[m HEAD@{108}: commit: 2nd all pages
+[33m464b53d[m HEAD@{109}: commit: first commit
+[33m351c4af[m HEAD@{110}: commit (initial): Initial commit

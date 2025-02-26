@@ -39,7 +39,7 @@ const DiscountScreen = () => {
     city: '',
     state: '',
     zip: '',
-    phone: '',
+    phoneNumber: '',
     email: '',
   });
 
@@ -116,7 +116,7 @@ const DiscountScreen = () => {
               city: userData.city || '',
               state: userData.state || '',
               zip: userData.zip || '',
-              phone: userData.phone || '',
+              phoneNumber: userData.phoneNumber || '',
               email: userData.email || '',
             });
             setSelectedGender(userData.gender || '');
@@ -234,11 +234,11 @@ const DiscountScreen = () => {
       city,
       state,
       zip,
-      phone,
+      phoneNumber,
       email,
     } = formData;
 
-    if (!firstName || !lastName || !address || !city || !state || !zip || !phone || !email || !selectedGender || !selectedFile) {
+    if (!firstName || !lastName || !address || !city || !state || !zip || !phoneNumber || !email || !selectedGender || !selectedFile) {
       Alert.alert('Error', 'Please fill out all required fields and upload a file.');
       return;
     }
@@ -266,7 +266,7 @@ const DiscountScreen = () => {
         city,
         state,
         zip,
-        phone,
+        phoneNumber,
         email,
         fileUrl,
         status: 'Pending',
@@ -499,7 +499,7 @@ const DiscountScreen = () => {
                 style={styles.input}
                 placeholder="Enter phone number"
                 placeholderTextColor="#000"
-                value={formData.phone}
+                value={formData.phoneNumber}
                 editable={false}
             />
         </View>

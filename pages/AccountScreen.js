@@ -28,10 +28,12 @@ const AccountScreen = () => {
     city: '',
     state: '',
     zip: '',
-    phone: '',
+    phoneNumber: '',
     email: '',
   });
 
+
+ 
   useEffect(() => {
     const fetchUserData = async () => {
       try {
@@ -40,13 +42,16 @@ const AccountScreen = () => {
           Alert.alert('Error', 'You must be logged in to access your account.');
           return;
         }
-
+  
         const uid = currentUser.uid;
         const userRef = database().ref(`users/accounts/${uid}`);
-
-        userRef.once('value').then((snapshot) => {
+  
+        userRef.on('value', (snapshot) => {
           if (snapshot.exists()) {
             const userData = snapshot.val();
+            
+          //  console.log("🔹 Fetched User Data from Firebase:", userData);
+  
             setFormData({
               firstName: userData.firstName || '',
               middleName: userData.middleName || '',
@@ -54,58 +59,97 @@ const AccountScreen = () => {
               address: userData.address || '',
               city: userData.city || '',
               state: userData.state || '',
-              zip: userData.zip || '',
-              phone: userData.phone || '',
+              zip: userData.zip ? String(userData.zip) : '', // ✅ fix here
+              phoneNumber: userData.phoneNumber ? String(userData.phoneNumber) : '', // ✅ fix here
               email: userData.email || '',
             });
+  
             setSelectedGender(userData.gender || '');
             setBirthDate(userData.birthDate ? new Date(userData.birthDate) : new Date());
+  
+            console.log("✅ Form Data Updated:", {
+              firstName: userData.firstName || '',
+              middleName: userData.middleName || '',
+              lastName: userData.lastName || '',
+              address: userData.address || '',
+              city: userData.city || '',
+              state: userData.state || '',
+              zip: userData.zip ? String(userData.zip) : '',
+              phoneNumber: userData.phoneNumber ? String(userData.phoneNumber) : '',
+              email: userData.email || '',
+              gender: userData.gender || '',
+              birthDate: userData.birthDate ? new Date(userData.birthDate) : new Date(),
+            });
+          } else {
+            console.log("⚠️ No user data found in Firebase.");
           }
         });
       } catch (error) {
-        console.error('Error fetching user data:', error);
+        console.error("❌ Error fetching user data:", error);
         Alert.alert('Error', 'Failed to fetch user data. Please try again.');
       }
     };
-
+  
     fetchUserData();
+  
+    return () => {
+      const currentUser = auth().currentUser;
+      if (currentUser) {
+        database().ref(`users/accounts/${currentUser.uid}`).off();
+      }
+    };
   }, []);
-
+  
+  
+  // 🔹 Sanitize input to prevent invalid characters
   const sanitizeInput = (value) => {
     return value.replace(/[<>"'/]/g, ''); // Remove potentially malicious characters
   };
 
+
+  // 🔹 Update form data in real-time and save to Firebase
   const handleInputChange = (field, value) => {
-    setFormData({ ...formData, [field]: sanitizeInput(value) });
+    const sanitizedValue = sanitizeInput(value);
+    setFormData((prevData) => ({
+      ...prevData,
+      [field]: sanitizedValue,
+    }));
+
+    
   };
+
 
   const onDateChange = (event, selectedDate) => {
     setDatePickerVisible(false);
     if (selectedDate) {
       setBirthDate(selectedDate);
+
+      // Save birth date to Firebase
+      const currentUser = auth().currentUser;
+      if (currentUser) {
+        const uid = currentUser.uid;
+        database().ref(`users/accounts/${uid}`).update({
+          birthDate: selectedDate.toISOString(),
+        });
+      }
     }
   };
 
   const handleSubmit = async () => {
-    const {
-      firstName,
-      middleName,
-      lastName,
-      address,
-      city,
-      state,
-      zip,
-      phone,
-      email,
-    } = formData;
+    const { firstName, middleName, lastName, address, city, state, zip, phoneNumber, email } = formData;
 
-    if (!firstName || !lastName || !address || !city || !state || !zip || !phone || !email || !selectedGender) {
+    if (!firstName || !lastName || !address || !city || !state || !zip || !phoneNumber || !email || !selectedGender) {
       Alert.alert('Error', 'Please fill out all required fields.');
       return;
     }
 
     if (isNaN(zip)) {
       Alert.alert('Error', 'ZIP/Postal Code must be a numeric value.');
+      return;
+    }
+
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      Alert.alert('Error', 'Please enter a valid email address.');
       return;
     }
 
@@ -116,9 +160,9 @@ const AccountScreen = () => {
         return;
       }
 
-      // Save updated account data to Firebase Realtime Database
       const uid = currentUser.uid;
       const userRef = database().ref(`users/accounts/${uid}`);
+
       await userRef.update({
         firstName,
         middleName,
@@ -129,7 +173,7 @@ const AccountScreen = () => {
         city,
         state,
         zip,
-        phone,
+        phoneNumber,
         email,
       });
 
@@ -273,8 +317,8 @@ const AccountScreen = () => {
               style={styles.input}
               placeholder="Enter ZIP code"
               placeholderTextColor="#000"
-              keyboardType="numeric"
-              value={formData.zip}
+         keyboardType="phone-pad"
+              value={formData.zip} 
               onChangeText={(text) => handleInputChange('zip', text)}
             />
           </View>
@@ -284,9 +328,9 @@ const AccountScreen = () => {
               style={styles.input}
               placeholder="Enter phone number"
               placeholderTextColor="#000"
-              keyboardType="numeric"
-              value={formData.phone}
-              onChangeText={(text) => handleInputChange('phone', text)}
+              keyboardType="phone-pad"
+              value={formData.phoneNumber}
+              onChangeText={(text) => handleInputChange('phoneNumber', text)}
             />
           </View>
         </View>
