@@ -39,6 +39,8 @@ import TransferScreen from './pages/Transfer';
 import NotificationScreen from './pages/NotificationScreen';
 import SettingsScreen from './pages/SettingsScreen';
 import AddConductorExisting from './pages/AddConductorExisting';
+import TermsAndConditionsScreen2 from './pages/Termsandcondition';
+import TermsAndConditionsScreen from './pages/TermsAndACondition';
 
 
 // Navigators
@@ -164,7 +166,7 @@ const App = () => {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer  onStateChange={(state) => console.log("Navigation State:", state)}>
       <RootStack.Navigator screenOptions={{ headerShown: false }}>
         {!isLoggedIn ? (
           <RootStack.Screen name="Auth" component={AuthNavigator} />
@@ -195,7 +197,9 @@ const App = () => {
         <RootStack.Screen name="Notifications" component={NotificationScreen} />
         <RootStack.Screen name="Settings" component={SettingsScreen} />
         <RootStack.Screen name="AddExisting" component={AddConductorExisting} />
-
+        <RootStack.Screen name="TermsAndConditions" component={TermsAndConditionsScreen2} />
+        <RootStack.Screen name="TermsAndConditionsReg" component={TermsAndConditionsScreen} />
+       
       </RootStack.Navigator>
     </NavigationContainer>
   );
