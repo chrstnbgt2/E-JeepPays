@@ -23,7 +23,8 @@ const HomeScreenConductor = () => {
   const [totalPassengers, setTotalPassengers] = useState(0); 
   const [totalIncome, setTotalIncome] = useState(0.0);  
   const [latestTransactions, setLatestTransactions] = useState([]);
- 
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+
   
   useEffect(() => {
     let userRef, jeepneyStatsRef, transactionsRef, driverRef, notificationRef;
@@ -192,7 +193,6 @@ const HomeScreenConductor = () => {
   };
 
 
-  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   useEffect(() => {
     let userRef, notificationRef;

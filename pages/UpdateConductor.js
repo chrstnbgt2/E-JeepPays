@@ -77,7 +77,7 @@ const EditConductor = ({ route }) => {
     try {
       await database().ref(`users/accounts/${account.id}`).update({
         creatorUid:"unassigned", 
-        status:"deactivated"
+        status:"Deactivated"
       });
   
       Alert.alert('Success', 'Conductor removed successfully.');

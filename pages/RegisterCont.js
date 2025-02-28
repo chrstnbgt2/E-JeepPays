@@ -174,7 +174,7 @@ const RegisterScreen2 = () => {
           <TouchableOpacity onPress={() => setAgreed(!agreed)} style={styles.checkboxContainer}>
               <Ionicons name={agreed ? "checkbox" : "square-outline"} size={24} color="#A5BE7D" />
               <Text style={styles.checkboxText}>
-                I accept the 
+                I accept the{' '}
                 <Text style={styles.termsLink} onPress={() => navigation.navigate("TermsAndConditions")}>
                   Terms & Conditions
                 </Text>

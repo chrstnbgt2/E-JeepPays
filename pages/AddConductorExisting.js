@@ -68,6 +68,7 @@ const AddConductorExisting = () => {
       await database().ref(`users/accounts/${userId}`).update({
         creatorUid: currentUser.uid,
         role: 'conductor',
+        status:'Inactive'
       });
 
       Alert.alert('Success', 'User has been assigned as a conductor.');
