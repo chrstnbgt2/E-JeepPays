@@ -252,148 +252,123 @@ const handleGenerate = async () => {
       Alert.alert('Error', 'Failed to generate QR code. Please try again.');
     }
   };
-  
+
+
+  //MAIN FUNCTION
   const saveTripToFirebase = async (scannedUid) => {
     try {
-      setIsScanning(true);   
+      setIsScanning(true);
   
       let isTemporaryQR = false;
       let creatorUid = scannedUid;
       let tempData = null;
-      let cashPayment = false; // Flag for cash payment flow
+  
+      // Flag that indicates we will handle partial or zero-balance as a cash flow
+      let cashPayment = false;
   
       const currentUser = auth().currentUser;
       if (!currentUser) {
-        Alert.alert('Error', 'Conductor is not logged in.');
+        Alert.alert("Error", "Conductor is not logged in.");
         setIsScanning(false);
         return;
       }
   
       const conductorUid = currentUser.uid;
       const conductorRef = database().ref(`/users/accounts/${conductorUid}`);
-      const conductorSnapshot = await conductorRef.once('value');
+      const conductorSnapshot = await conductorRef.once("value");
       if (!conductorSnapshot.exists()) {
-        Alert.alert('Error', 'Conductor account not found.');
+        Alert.alert("Error", "Conductor account not found.");
         setIsScanning(false);
         return;
       }
   
       const conductorData = conductorSnapshot.val();
-      const conductorName = `${conductorData.firstName || ''} ${conductorData.lastName || ''}`.trim();
+      const conductorName = `${conductorData.firstName || ""} ${conductorData.lastName || ""}`.trim();
+  
+      // The driver who "owns" this conductor
       const driverUid = conductorData.creatorUid;
-      const conductorBalance = conductorData.wallet_balance || 0;  
-  
-      const minimumBalanceRequired = 100; 
-      if (conductorBalance < minimumBalanceRequired) {
-        Alert.alert(
-          "Insufficient Balance",
-          `Your balance is too low (₱${conductorBalance}). Minimum required: ₱${minimumBalanceRequired}.`
-        );
-        setIsScanning(false);
-        return;
-      }
-  
       if (!driverUid) {
-        Alert.alert('Error', 'No linked driver found for this conductor.');
+        Alert.alert("Error", "No linked driver found for this conductor.");
         setIsScanning(false);
         return;
       }
   
       const driverRef = database().ref(`/users/accounts/${driverUid}`);
-      const driverSnapshot = await driverRef.once('value');
+      const driverSnapshot = await driverRef.once("value");
       if (!driverSnapshot.exists()) {
-        Alert.alert('Error', 'Driver account not found.');
+        Alert.alert("Error", "Driver account not found.");
         setIsScanning(false);
         return;
       }
-  
       const driverData = driverSnapshot.val();
+  
+      // Jeepney assigned to the driver
       const jeepneyId = driverData.jeep_assigned;
       if (!jeepneyId) {
-        Alert.alert('Error', 'No jeepney assigned to this driver.');
+        Alert.alert("Error", "No jeepney assigned to this driver.");
         setIsScanning(false);
         return;
       }
   
       const jeepneyRef = database().ref(`/jeepneys/${jeepneyId}`);
-      const jeepneySnapshot = await jeepneyRef.once('value');
+      const jeepneySnapshot = await jeepneyRef.once("value");
       if (!jeepneySnapshot.exists()) {
-        Alert.alert('Error', 'Jeepney not found.');
+        Alert.alert("Error", "Jeepney not found.");
         setIsScanning(false);
         return;
       }
   
       const jeepneyData = jeepneySnapshot.val();
+      const maxCapacity = jeepneyData.capacity || 25;
+      let currentCapacity = jeepneyData.currentCapacity ?? maxCapacity;
   
+      // Ensure jeepney is "in-service"
       if (jeepneyData.status !== "in-service") {
-        Alert.alert('Jeep Status', 'Out of Service Cannot Complete Transaction.');  
+        Alert.alert("Jeep Status", "Out of Service. Cannot complete transaction.");
         setIsScanning(false);
         return;
       }
   
-      const maxCapacity = jeepneyData.capacity || 25;
-      let currentCapacity = jeepneyData.currentCapacity ?? maxCapacity;
-  
+      // Check if scanned QR is a "temporary" code
       const tempRef = database().ref(`/temporary`);
-      const tempSnapshot = await tempRef.once('value');
+      const tempSnapshot = await tempRef.once("value");
       tempSnapshot.forEach((child) => {
         const generatedUidData = child.val();
         const generatedUidKeys = Object.keys(generatedUidData);
         if (generatedUidKeys.includes(scannedUid)) {
           isTemporaryQR = true;
-          creatorUid = child.key;
+          creatorUid = child.key; // The user who generated this temporary QR
           tempData = generatedUidData[scannedUid];
         }
       });
   
-      if (isTemporaryQR && (!tempData || tempData.status !== 'enabled')) {
-        Alert.alert('Error', 'This temporary QR code is not valid or already disabled.');
+      // If it's a temporary code but not valid or already disabled
+      if (isTemporaryQR && (!tempData || tempData.status !== "enabled")) {
+        Alert.alert("Error", "This temporary QR code is invalid or already disabled.");
         setIsScanning(false);
         return;
       }
   
+      // Fetch passenger data (the user who owns the QR)
       const userRef = database().ref(`/users/accounts/${creatorUid}`);
-      const userSnapshot = await userRef.once('value');
+      const userSnapshot = await userRef.once("value");
       if (!userSnapshot.exists()) {
-        Alert.alert('Error', 'No user found for this QR code.');
+        Alert.alert("Error", "No user found for this QR code.");
         setIsScanning(false);
         return;
       }
-  
       const userData = userSnapshot.val();
   
-      // --- Prompt for Cash Payment if user's balance is 0 ---
-      if (userData.wallet_balance === 0) {
-        const confirmCashPayment = () =>
-          new Promise((resolve) => {
-            Alert.alert(
-              "Cash Payment",
-              "Passenger has zero balance. Would you like to proceed with cash payment?",
-              [
-                { text: "Cancel", onPress: () => resolve(false), style: "cancel" },
-                { text: "Proceed", onPress: () => resolve(true) }
-              ],
-              { cancelable: false }
-            );
-          });
-    
-        const proceed = await confirmCashPayment();
-        if (!proceed) {
-          setIsScanning(false);
-          return;
-        }
-        cashPayment = true;
-      }
-      // -----------------------------------------------------------
-  
+      // Determine fare type
       let fareType = isTemporaryQR
-        ? tempData?.type?.toLowerCase() || 'regular'
-        : userData.acc_type?.toLowerCase() || 'regular';
+        ? tempData?.type?.toLowerCase() || "regular"
+        : userData.acc_type?.toLowerCase() || "regular";
   
+      // Load fare rates
       const fareRef = database().ref(`/fares/${fareType}`);
-      const fareSnapshot = await fareRef.once('value');
+      const fareSnapshot = await fareRef.once("value");
       if (!fareSnapshot.exists()) {
-        Alert.alert('Error', `Fare type "${fareType}" not found.`);
+        Alert.alert("Error", `Fare type "${fareType}" not found.`);
         setIsScanning(false);
         return;
       }
@@ -403,42 +378,41 @@ const handleGenerate = async () => {
       const baseFare = fareData.firstKm;
       const additionalRatePerMeter = fareData.succeedingKm / 1000;
   
-      // --- Inform Conductor if Passenger's balance is insufficient (but non-zero) ---
-      if (userData.wallet_balance > 0 && userData.wallet_balance < baseFare) {
-        await new Promise((resolve) => {
-          Alert.alert(
-            "Insufficient Passenger Balance",
-            `Passenger balance is only ₱${userData.wallet_balance}. The remaining fare will be paid in cash.`,
-            [{ text: "OK", onPress: () => resolve() }],
-            { cancelable: false }
-          );
-        });
-        // Mark this as a cash payment scenario.
-        cashPayment = true;
-      }
-      // ---------------------------------------------------------------------
-  
+      // The "tripListRef" is where we store the trip data
       const tripListRef = database().ref(`/trips/temporary/${creatorUid}/${scannedUid}`);
-      const tripSnapshot = await tripListRef.once('value');
+      const tripSnapshot = await tripListRef.once("value");
   
-      if (tripSnapshot.exists() && tripSnapshot.val().status === 'in-progress') {
-        const location = await getLocation(currentUser.uid);
-        if (!location) throw new Error('Failed to retrieve location.');
-  
-        const { latitude, longitude } = location;
+      // ------------------------------------------------------
+      //  IF TRIP IS IN-PROGRESS, WE COMPLETE THE TRIP (2ND SCAN)
+      // ------------------------------------------------------
+      if (tripSnapshot.exists() && tripSnapshot.val().status === "in-progress") {
         const tripData = tripSnapshot.val();
-        const { latitude: startLat, longitude: startLong } = tripData.start_loc;
   
+        // Only allow the same conductor to finish the trip
+        if (tripData.conductorUid !== conductorUid) {
+          Alert.alert("Error", "You are not authorized to complete this trip.");
+          setIsScanning(false);
+          return;
+        }
+  
+        // 1) Get location to compute route
+        const location = await getLocation(currentUser.uid);
+        if (!location) throw new Error("Failed to retrieve location.");
+        const { latitude, longitude } = location;
+  
+        // 2) Calculate distance via Mapbox
+        const { latitude: startLat, longitude: startLong } = tripData.start_loc;
         const directionsUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/${startLong},${startLat};${longitude},${latitude}?access_token=${MAPBOX_ACCESS_TOKEN}`;
         const response = await fetch(directionsUrl);
         const routeData = await response.json();
   
         if (!response.ok || !routeData.routes || routeData.routes.length === 0) {
-          Alert.alert('Error', 'Failed to get route from Mapbox.');
+          Alert.alert("Error", "Failed to get route from Mapbox.");
           setIsScanning(false);
           return;
         }
   
+        // 3) Compute payment
         const distanceMeters = routeData.routes[0].distance;
         let payment = baseFare;
         if (distanceMeters > baseFareDistanceMeters) {
@@ -447,47 +421,55 @@ const handleGenerate = async () => {
         }
         payment = parseFloat(payment.toFixed(2));
   
-        let deductedAmount = 0; 
+        // 4) Deduct from passenger’s wallet or handle partial/cash
+        let deductedAmount = 0;
         let userMessage = `Trip Payment Successful with an amount of ₱${payment}`;
         let conductorMessage = `Trip Payment Received with an amount of ₱${payment}`;
   
-        if (cashPayment && userData.wallet_balance === 0) {
-          // --- Cash Payment Flow when user's balance is zero ---
-          deductedAmount = 0;
-          userMessage = `Trip Payment Successful. Cash payment of ₱${payment} received.`;
-          conductorMessage = `Trip Payment Received. Passenger paid cash for ₱${payment}.`;
-        } else if (userData.wallet_balance >= payment) {
-          // User has enough funds - deduct full fare from user
+        // (a) If user’s balance is enough for full fare
+        if (userData.wallet_balance >= payment) {
           await userRef.update({ wallet_balance: userData.wallet_balance - payment });
           await conductorRef.update({
             wallet_balance: (conductorData.wallet_balance || 0) + payment,
           });
           deductedAmount = payment;
-        } else if (userData.wallet_balance > 0) {
-          // User has insufficient funds:
-          // Take the full user balance and add it to the conductor.
+        }
+        // (b) If user’s balance is partially sufficient
+        else if (userData.wallet_balance > 0) {
           const userBalance = userData.wallet_balance;
           const remainingFare = payment - userBalance;
-    
+  
+          // Deduct entire user balance
           await userRef.update({ wallet_balance: 0 });
           await conductorRef.update({
             wallet_balance: (conductorData.wallet_balance || 0) + userBalance,
           });
-    
           deductedAmount = userBalance;
-    
-          userMessage = `Trip Payment Successful. Passenger paid ₱${userBalance.toFixed(2)} from their wallet; remaining ₱${remainingFare.toFixed(2)} will be paid in cash.`;
-          conductorMessage = `Trip Payment Received. Passenger's wallet contributed ₱${userBalance.toFixed(2)}; remaining ₱${remainingFare.toFixed(2)} will be collected in cash.`;
-    
+  
+          userMessage = `Trip Payment Successful. ₱${userBalance.toFixed(
+            2
+          )} from wallet; remaining ₱${remainingFare.toFixed(2)} paid in cash.`;
+          conductorMessage = `Trip Payment Received. Passenger's wallet: ₱${userBalance.toFixed(
+            2
+          )}; remaining ₱${remainingFare.toFixed(2)} in cash.`;
+  
           Alert.alert(
             "Insufficient Balance",
-            `Passenger paid ₱${userBalance.toFixed(2)} from their wallet, remaining ₱${remainingFare.toFixed(2)} will be paid in cash.`
+            `Passenger paid ₱${userBalance.toFixed(2)} from wallet. Remaining ₱${remainingFare.toFixed(
+              2
+            )} will be cash.`
           );
-          // Mark as cash payment for notification purposes.
           cashPayment = true;
         }
+        // (c) If user’s balance is zero => full cash
+        else {
+          deductedAmount = 0;
+          cashPayment = true;
+          userMessage = `Trip Payment Successful. Cash payment of ₱${payment} received.`;
+          conductorMessage = `Trip Payment Received. Passenger paid cash for ₱${payment}.`;
+        }
   
-        // Send Notification to User
+        // 5) Notify passenger, conductor, driver
         await database().ref(`/notification_user/${creatorUid}`).push({
           creatorUid,
           amount: payment,
@@ -496,8 +478,6 @@ const handleGenerate = async () => {
           type: "trip",
           message: userMessage,
         });
-  
-        // Send Notification to Conductor
         await database().ref(`/notification_user/${conductorUid}`).push({
           conductorUid,
           amount: payment,
@@ -506,129 +486,198 @@ const handleGenerate = async () => {
           type: "trip",
           message: conductorMessage,
         });
+        await database().ref(`/notification_user/${driverUid}`).push({
+          driverUid,
+          amount: payment,
+          status: "unread",
+          conductorName,
+          createdAt: new Date().toISOString(),
+          type: "trip",
+          message: conductorMessage,
+        });
   
-        // Save Transactions
-        await database().ref(`/users/accounts/${conductorUid}/transactions`).push({
-          type:'trip',
-          description: cashPayment
-            ? 'Trip cash payment processed'
-            : 'Trip payment deducted',
-          conductorUid: conductorUid,
-          conductorName: 'You',
-          amount: payment,
-          distance: parseFloat((distanceMeters / 1000).toFixed(2)),
-          createdAt: new Date().toISOString(),
-        });
-        
-        // Save Transactions
+        // 6) Store transaction in passenger’s account
         await database().ref(`/users/accounts/${creatorUid}/transactions`).push({
-          type:'trip',
+          type: "trip",
           description: cashPayment
-            ? 'Trip cash payment processed'
-            : 'Trip payment deducted',
-          conductorUid: conductorUid,
-          conductorName: conductorName,
+            ? "Trip cash payment processed"
+            : "Trip payment deducted",
+          conductorUid,
+          conductorName,
           amount: payment,
           distance: parseFloat((distanceMeters / 1000).toFixed(2)),
           createdAt: new Date().toISOString(),
         });
-        
-        // Log conductor's transaction if not a cash payment
+  
+        // 7) Store transaction in conductor’s account (only if not cash)
         if (!cashPayment) {
           await database().ref(`/users/accounts/${conductorUid}/transactions`).push({
-            type: 'trip',
-            description: `Trip payment received`,
-            conductorUid: conductorUid,
-            conductorName: 'You',
+            type: "trip",
+            description: "Trip payment received",
+            conductorUid,
+            conductorName: "You",
             amount: payment,
             distance: parseFloat((distanceMeters / 1000).toFixed(2)),
             createdAt: new Date().toISOString(),
           });
         }
-        
-        // Update trip details
+  
+        // 8) Mark trip as completed
         await tripListRef.update({
           stop_loc: { latitude, longitude },
           distance: parseFloat((distanceMeters / 1000).toFixed(2)),
           payment,
-          status: 'completed',
+          status: "completed",
         });
-        
+  
+        // 9) Free up a seat
         currentCapacity = Math.min(maxCapacity, currentCapacity + 1);
         await jeepneyRef.update({ currentCapacity });
-        
+  
+        // If it was a temporary QR, disable it
         if (isTemporaryQR) {
           const qrRef = database().ref(`/temporary/${creatorUid}/${scannedUid}`);
-          await qrRef.update({ status: 'disabled' });
+          await qrRef.update({ status: "disabled" });
         }
-   
+      
+        try {
+          const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+          const dailyStatsRef = database().ref(`/jeepneys/${jeepneyId}/dailyStats/${today}`);
+        
+          await dailyStatsRef.transaction((currentStats) => {
+            // If no stats exist, initialize them.
+            if (currentStats === null) {
+              return {
+                totalIncome: payment,
+                totalPassengers: 1,
+                cashPayment: cashPayment ? payment : 0,
+                cashlessPayment: cashPayment ? 0 : payment,
+              };
+            }
+        
+            // Use default values if fields are missing.
+            const prevIncome = Number(currentStats.totalIncome) || 0;
+            const prevPassengers = Number(currentStats.totalPassengers) || 0;
+            const prevCashPayment = Number(currentStats.cashPayment) || 0;
+            const prevCashlessPayment = Number(currentStats.cashlessPayment) || 0;
+        
+            const newTotalIncome = prevIncome + payment;
+            const newTotalPassengers = prevPassengers + 1;
+        
+            if (cashPayment) {
+              const newCashPayment = prevCashPayment + payment;
+              return {
+                ...currentStats,
+                totalIncome: parseFloat(newTotalIncome.toFixed(2)),
+                totalPassengers: newTotalPassengers,
+                cashPayment: parseFloat(newCashPayment.toFixed(2)),
+              };
+            } else {
+              const newCashlessPayment = prevCashlessPayment + payment;
+              return {
+                ...currentStats,
+                totalIncome: parseFloat(newTotalIncome.toFixed(2)),
+                totalPassengers: newTotalPassengers,
+                cashlessPayment: parseFloat(newCashlessPayment.toFixed(2)),
+              };
+            }
+          });
+        } catch (error) {
+          console.error("Error updating daily stats:", error);
+          Alert.alert("Error", "There was an issue updating daily stats.");
+        }
+        
+  
         Alert.alert(
-          'Trip Completed',
+          "Trip Completed",
           `Trip completed! Fare: ₱${payment.toFixed(2)}. Seats Available: ${currentCapacity}`
         );
-        
-        // Update Jeepney Daily Stats
-        const currentDate = new Date().toISOString().split('T')[0]; // Format: YYYY-MM-DD
-        const dailyStatsRef = database().ref(`/jeepneys/${jeepneyId}/dailyStats/${currentDate}`);
-        
-        await dailyStatsRef.transaction((dailyStats) => {
-            if (dailyStats) {
-                return {
-                    totalIncome: (dailyStats.totalIncome || 0) + payment,
-                    totalPassengers: (dailyStats.totalPassengers || 0) + 1,
-                };
-            } else {
-                return { totalIncome: payment, totalPassengers: 1 };
-            }
-        });
-        
-        setTimeout(() => {
-          setIsScanning(false);
-        }, 500);
-        
-      } else {
+        setTimeout(() => setIsScanning(false), 500);
+      }
+      // ------------------------------------------------------
+      //   ELSE: NO IN-PROGRESS TRIP => START A NEW TRIP (1ST SCAN)
+      // ------------------------------------------------------
+      else {
+        // Check if jeepney is full
         if (currentCapacity <= 0) {
-          Alert.alert('Error', 'The jeepney is full.');
+          Alert.alert("Error", "The jeepney is full.");
           setIsScanning(false);
           return;
         }
-    
+  
+        // Get location for trip start
         const location = await getLocation(currentUser.uid);
-        if (!location) throw new Error('Failed to retrieve location.');
-    
+        if (!location) throw new Error("Failed to retrieve location.");
         const { latitude, longitude } = location;
-    
+  
+        // 1) If user has zero balance, prompt to proceed with cash
+        if (userData.wallet_balance === 0) {
+          const confirmCashPayment = () =>
+            new Promise((resolve) => {
+              Alert.alert(
+                "Cash Payment",
+                "Passenger has zero balance. Proceed with cash payment?",
+                [
+                  { text: "Cancel", onPress: () => resolve(false), style: "cancel" },
+                  { text: "Proceed", onPress: () => resolve(true) },
+                ],
+                { cancelable: false }
+              );
+            });
+  
+          const proceed = await confirmCashPayment();
+          if (!proceed) {
+            setIsScanning(false);
+            return;
+          }
+          cashPayment = true;
+        }
+  
+        // 2) If user’s balance is > 0 but < baseFare, show info
+        if (userData.wallet_balance > 0 && userData.wallet_balance < baseFare) {
+          await new Promise((resolve) => {
+            Alert.alert(
+              "Insufficient Passenger Balance",
+              `Passenger balance is only ₱${userData.wallet_balance}. The remaining fare will be paid in cash.`,
+              [{ text: "OK", onPress: () => resolve() }],
+              { cancelable: false }
+            );
+          });
+          cashPayment = true;
+        }
+  
+        // 3) Start the trip
         await tripListRef.set({
           start_loc: { latitude, longitude },
           stop_loc: null,
           distance: 0,
           payment: 0,
-          status: 'in-progress',
+          status: "in-progress",
           type: fareType,
           qrId: scannedUid,
           timestamp: Date.now(),
+          // Store which conductor started this trip
+          conductorUid,
         });
-    
+  
+        // 4) Decrement a seat
         currentCapacity -= 1;
         await jeepneyRef.update({ currentCapacity });
-    
-        Alert.alert('Trip Started', `New trip has been started! Remaining Seats: ${currentCapacity}`);
-    
-        setTimeout(() => {
-          setIsScanning(false);
-        }, 500);
+  
+        Alert.alert(
+          "Trip Started",
+          `New trip has been started! Remaining Seats: ${currentCapacity}`
+        );
+        setTimeout(() => setIsScanning(false), 500);
       }
     } catch (error) {
-      console.error('Error saving trip to Firebase:', error);
-      Alert.alert('Error', 'Failed to save trip data.');
+      console.error("Error saving trip to Firebase:", error);
+      Alert.alert("Error", "Failed to save trip data.");
       setIsScanning(false);
     }
   };
   
-  
-  
-  
-  
+   
   
   const codeScanner = useCodeScanner({
     codeTypes: ['qr'],

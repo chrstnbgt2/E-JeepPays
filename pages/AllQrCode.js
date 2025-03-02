@@ -333,10 +333,12 @@ const DisplayAllQR_Conductor = () => {
       const dailyStatsRef = database().ref(`/jeepneys/${jeepneyId}/dailyStats/${today}`);
       const dailyStatsSnapshot = await dailyStatsRef.once('value');
       const dailyStats = dailyStatsSnapshot.val() || { totalIncome: 0, totalPassengers: 0 };
+      const dailyStatsCash = dailyStatsSnapshot.val() || {cashPayment: 0 };
   
       await dailyStatsRef.update({
         totalIncome: parseFloat((dailyStats.totalIncome + payment).toFixed(2)),
         totalPassengers: dailyStats.totalPassengers + 1,
+        cashPayment:parseFloat((dailyStatsCash.cashPayment + payment).toFixed(2)),
       });
   
       // Log transaction for the conductor
@@ -349,9 +351,9 @@ const DisplayAllQR_Conductor = () => {
         createdAt: new Date().toISOString(),
       });
   
-       await conductorRef.update({
-        wallet_balance: (conductorData.wallet_balance || 0) - payment,
-      });
+      //  await conductorRef.update({
+      //   wallet_balance: (conductorData.wallet_balance || 0) - payment,
+      // });
   
       Alert.alert(
         'Trip Stopped',

@@ -25,7 +25,10 @@ const HomeScreenConductor = () => {
   const [latestTransactions, setLatestTransactions] = useState([]);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
 
-  
+  const [cashPayment, setCashIncome] = useState(0.0);
+  const [cashlessPayment, setCashlessIncome] = useState(0.0);
+  const [isCashPayment, setIsCashPayment] = useState(true); // Toggle for Cash/Cashless
+
   useEffect(() => {
     let userRef, jeepneyStatsRef, transactionsRef, driverRef, notificationRef;
   
@@ -81,9 +84,13 @@ const HomeScreenConductor = () => {
                 const statsData = statsSnapshot.val();
                 setTotalPassengers(statsData.totalPassengers || 0);
                 setTotalIncome(parseFloat(statsData.totalIncome || 0).toFixed(2));
+                setCashIncome(parseFloat(statsData.cashPayment || 0));
+                setCashlessIncome(parseFloat(statsData.cashlessPayment || 0));
               } else {
                 setTotalPassengers(0);
                 setTotalIncome("0.00");
+                setCashIncome("0.00");
+                setCashlessIncome("0.00");
               }
             });
   
@@ -276,9 +283,9 @@ const HomeScreenConductor = () => {
             source={require('../assets/images/wallet-icon.png')}
             style={styles.walletIcon}
           />
-           <TouchableOpacity style={styles.cashInButton} onPress={() => navigation.navigate('CashIn')}>
+           {/* <TouchableOpacity style={styles.cashInButton} onPress={() => navigation.navigate('CashIn')}>
             <Text style={styles.cashInText}>Cash In</Text>
-          </TouchableOpacity>
+          </TouchableOpacity> */}
           <TouchableOpacity style={styles.cashInButton1} onPress={() => navigation.navigate('Transfer')}>
             <Text style={styles.cashInText}>Transfer</Text>
           </TouchableOpacity>
@@ -294,29 +301,71 @@ const HomeScreenConductor = () => {
             style={styles.lineImage}
           />
         </View>
-        <View style={styles.dashboard}>
-          {/* Fare Rate Card */}
-          <ImageBackground
-            source={require('../assets/images/card-gradient.png')}
-            style={styles.card}
-            imageStyle={styles.cardImageBackground}
-          >
-            <MaterialCommunityIcons name="account-group" size={40} color="#FFFFFF" />
-            <Text style={styles.cardValue}>{totalPassengers}</Text>
-            <Text style={styles.cardLabel}>Total Passenger</Text>
-          </ImageBackground>
+        
+        <View>
+  {/* Toggle Button */}
+  <TouchableOpacity
+  style={styles.toggleButton}
+  activeOpacity={0.7}
+  onPress={() => setIsCashPayment(prev => !prev)}
+>
+  <MaterialCommunityIcons name="swap-horizontal-circle" size={30} color="#FFFFFF" />
+</TouchableOpacity>
 
-          {/* Total Income Card */}
-          <ImageBackground
-            source={require('../assets/images/card-gradient.png')}
-            style={styles.card}
-            imageStyle={styles.cardImageBackground}
-          >
-            <FontAwesome5 name="coins" size={40} color="#FFFFFF" />
-            <Text style={styles.cardValue}>₱{totalIncome}</Text>
-            <Text style={styles.cardLabel}>Total Income</Text>
-          </ImageBackground>
-        </View>
+
+  {/* Dashboard Section */}
+  {isCashPayment ? (
+    // Cash Payment View
+    <View style={styles.dashboard}>
+      {/* Fare Rate Card */}
+      <ImageBackground
+        source={require('../assets/images/card-gradient.png')}
+        style={styles.card}
+        imageStyle={styles.cardImageBackground}
+      >
+        <MaterialCommunityIcons name="account-group" size={40} color="#FFFFFF" />
+        <Text style={styles.cardValue}>{totalPassengers}</Text>
+        <Text style={styles.cardLabel}>Total Passenger</Text>
+      </ImageBackground>
+
+      {/* Total Income Card */}
+      <ImageBackground
+        source={require('../assets/images/card-gradient.png')}
+        style={styles.card}
+        imageStyle={styles.cardImageBackground}
+      >
+        <FontAwesome5 name="coins" size={40} color="#FFFFFF" />
+        <Text style={styles.cardValue}>₱{totalIncome}</Text>
+        <Text style={styles.cardLabel}>Total Income</Text>
+      </ImageBackground>
+    </View>
+  ) : (
+    // Cashless Payment View
+    <View style={styles.dashboard}>
+      {/* Fare Rate Card */}
+      <ImageBackground
+        source={require('../assets/images/card-gradient.png')}
+        style={styles.card}
+        imageStyle={styles.cardImageBackground}
+      >
+        <MaterialCommunityIcons name="cash" size={40} color="#FFFFFF" />
+        <Text style={styles.cardValue}>{cashlessPayment}</Text>
+        <Text style={styles.cardLabel}>Total Cashless</Text>
+      </ImageBackground>
+
+      {/* Total Income Card */}
+      <ImageBackground
+        source={require('../assets/images/card-gradient.png')}
+        style={styles.card}
+        imageStyle={styles.cardImageBackground}
+      >
+        <FontAwesome5 name="coins" size={40} color="#FFFFFF" />
+        <Text style={styles.cardValue}>₱{cashPayment}</Text>
+        <Text style={styles.cardLabel}>Total Cash</Text>
+      </ImageBackground>
+    </View>
+  )}
+</View>
 
         {/* Transactions Section */}
         <View style={styles.sectionHeader}>
@@ -344,6 +393,22 @@ const HomeScreenConductor = () => {
 };
 
 const styles = StyleSheet.create({
+  toggleButton: {
+    backgroundColor: '#466B66', // Orange for better visibility
+    padding: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+ 
+    marginTop: -45,
+    width: '20%', // Matches card width
+   alignSelf: 'flex-end'
+  },
+  toggleButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  
   container: {
     flex: 1,
     backgroundColor: '#F4F4F4',

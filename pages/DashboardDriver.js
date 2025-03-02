@@ -35,6 +35,9 @@ const HomeScreenDriver = () => {
   const driverUid = auth().currentUser?.uid;
   const watchIdRef = useRef(null);
   const jeepneyStatusRef = useRef(null);
+  const [cashPayment, setCashIncome] = useState(0.0);
+  const [cashlessPayment, setCashlessIncome] = useState(0.0);
+  const [isCashPayment, setIsCashPayment] = useState(true); // Toggle for Cash/Cashless
 
 
  //FETCH DETAILS
@@ -58,14 +61,18 @@ const HomeScreenDriver = () => {
           const today = new Date().toISOString().split('T')[0];
           const jeepneyStatsRef = database().ref(`/jeepneys/${jeepneyUid}/dailyStats/${today}`);
   
-          jeepneyStatsRef.on('value', (statsSnapshot) => {
+          jeepneyStatsRef.on("value", (statsSnapshot) => {
             if (statsSnapshot.exists()) {
               const statsData = statsSnapshot.val();
               setTotalPassengers(statsData.totalPassengers || 0);
               setTotalIncome(parseFloat(statsData.totalIncome || 0).toFixed(2));
+              setCashIncome(parseFloat(statsData.cashPayment || 0));
+              setCashlessIncome(parseFloat(statsData.cashlessPayment || 0));
             } else {
               setTotalPassengers(0);
-              setTotalIncome('0.00');
+              setTotalIncome("0.00");
+              setCashIncome("0.00");
+              setCashlessIncome("0.00");
             }
           });
   
@@ -422,29 +429,71 @@ const HomeScreenDriver = () => {
           <Text style={styles.sectionTitle}>Dashboard</Text>
           <Image source={require('../assets/images/line.png')} style={styles.lineImage} />
         </View>
-        <View style={styles.dashboard}>
-          {/* Total Passenger Card */}
-          <ImageBackground
-            source={require('../assets/images/card-gradient.png')}
-            style={styles.card}
-            imageStyle={styles.cardImageBackground}
-          >
-            <MaterialCommunityIcons name="account-group" size={40} color="#FFFFFF" />
-            <Text style={styles.cardValue}>{totalPassengers}</Text>
-            <Text style={styles.cardLabel}>Total Passengers</Text>
-          </ImageBackground>
 
-          {/* Total Income Card */}
-          <ImageBackground
-            source={require('../assets/images/card-gradient.png')}
-            style={styles.card}
-            imageStyle={styles.cardImageBackground}
-          >
-            <FontAwesome5 name="coins" size={40} color="#FFFFFF" />
-            <Text style={styles.cardValue}>₱ {totalIncome}</Text>
-            <Text style={styles.cardLabel}>Total Income</Text>
-          </ImageBackground>
-        </View>
+               <View>
+         {/* Toggle Button */}
+         <TouchableOpacity
+         style={styles.toggleButton}
+         activeOpacity={0.7}
+         onPress={() => setIsCashPayment(prev => !prev)}
+       >
+         <MaterialCommunityIcons name="swap-horizontal-circle" size={30} color="#FFFFFF" />
+       </TouchableOpacity>
+       
+       
+         {/* Dashboard Section */}
+         {isCashPayment ? (
+           // Cash Payment View
+           <View style={styles.dashboard}>
+             {/* Fare Rate Card */}
+             <ImageBackground
+               source={require('../assets/images/card-gradient.png')}
+               style={styles.card}
+               imageStyle={styles.cardImageBackground}
+             >
+               <MaterialCommunityIcons name="account-group" size={40} color="#FFFFFF" />
+               <Text style={styles.cardValue}>{totalPassengers}</Text>
+               <Text style={styles.cardLabel}>Total Passenger</Text>
+             </ImageBackground>
+       
+             {/* Total Income Card */}
+             <ImageBackground
+               source={require('../assets/images/card-gradient.png')}
+               style={styles.card}
+               imageStyle={styles.cardImageBackground}
+             >
+               <FontAwesome5 name="coins" size={40} color="#FFFFFF" />
+               <Text style={styles.cardValue}>₱{totalIncome}</Text>
+               <Text style={styles.cardLabel}>Total Income</Text>
+             </ImageBackground>
+           </View>
+         ) : (
+           // Cashless Payment View
+           <View style={styles.dashboard}>
+             {/* Fare Rate Card */}
+             <ImageBackground
+               source={require('../assets/images/card-gradient.png')}
+               style={styles.card}
+               imageStyle={styles.cardImageBackground}
+             >
+               <MaterialCommunityIcons name="cash" size={40} color="#FFFFFF" />
+               <Text style={styles.cardValue}>₱{cashlessPayment}</Text>
+               <Text style={styles.cardLabel}>Total Cashless</Text>
+             </ImageBackground>
+       
+             {/* Total Income Card */}
+             <ImageBackground
+               source={require('../assets/images/card-gradient.png')}
+               style={styles.card}
+               imageStyle={styles.cardImageBackground}
+             >
+               <FontAwesome5 name="coins" size={40} color="#FFFFFF" />
+               <Text style={styles.cardValue}>₱{cashPayment}</Text>
+               <Text style={styles.cardLabel}>Total Cash</Text>
+             </ImageBackground>
+           </View>
+         )}
+       </View>
 
         {/* Transactions Section */}
         <View style={styles.sectionHeader}>
@@ -473,6 +522,22 @@ const HomeScreenDriver = () => {
 
 
 const styles = StyleSheet.create({
+  toggleButton: {
+    backgroundColor: '#466B66', // Orange for better visibility
+    padding: 12,
+    borderRadius: 10,
+    alignItems: 'center',
+ 
+    marginTop: -20,
+    width: '20%', // Matches card width
+   alignSelf: 'flex-end'
+  },
+  toggleButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  
   container: {
     flex: 1,
     backgroundColor: '#F4F4F4',
