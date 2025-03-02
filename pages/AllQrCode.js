@@ -154,19 +154,19 @@ const DisplayAllQR_Conductor = () => {
         return;
       }
   
-      let conductorBalance = conductorData.wallet_balance || 0;
+      // let conductorBalance = conductorData.wallet_balance || 0;
   
-      // ❌ **Prevent Trip Start if Balance is Below ₱100**
-      const MIN_REQUIRED_BALANCE = 100; 
-      if (conductorBalance < MIN_REQUIRED_BALANCE) {
-        Alert.alert(
-          "Insufficient Balance",
-          `Your wallet balance is too low (₱${conductorBalance.toFixed(
-            2
-          )}). You need at least ₱100 to start a trip. Please top up first.`
-        );
-        return;
-      }
+      // // ❌ **Prevent Trip Start if Balance is Below ₱100**
+      // const MIN_REQUIRED_BALANCE = 100; 
+      // if (conductorBalance < MIN_REQUIRED_BALANCE) {
+      //   Alert.alert(
+      //     "Insufficient Balance",
+      //     `Your wallet balance is too low (₱${conductorBalance.toFixed(
+      //       2
+      //     )}). You need at least ₱100 to start a trip. Please top up first.`
+      //   );
+      //   return;
+      // }
   
       // ✅ **Get Current Location**
       const location = await getLocation();

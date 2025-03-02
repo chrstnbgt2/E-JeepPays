@@ -304,14 +304,10 @@ const HomeScreenConductor = () => {
         
         <View>
   {/* Toggle Button */}
-  <TouchableOpacity
-  style={styles.toggleButton}
-  activeOpacity={0.7}
-  onPress={() => setIsCashPayment(prev => !prev)}
->
-  <MaterialCommunityIcons name="swap-horizontal-circle" size={30} color="#FFFFFF" />
-</TouchableOpacity>
-
+     <MaterialCommunityIcons  style={styles.toggleButton}
+         onPress={() => setIsCashPayment(prev => !prev)} 
+         name="swap-horizontal-circle" size={30} color="#466B66" />
+     
 
   {/* Dashboard Section */}
   {isCashPayment ? (
@@ -394,17 +390,16 @@ const HomeScreenConductor = () => {
 
 const styles = StyleSheet.create({
   toggleButton: {
-    backgroundColor: '#466B66', // Orange for better visibility
-    padding: 12,
-    borderRadius: 10,
-    alignItems: 'center',
+    
  
-    marginTop: -45,
+   marginRight:-40,
+    marginTop: -50,
     width: '20%', // Matches card width
    alignSelf: 'flex-end'
   },
   toggleButtonText: {
-    color: '#FFFFFF',
+ 
+    color: '#466B66',
     fontSize: 16,
     fontWeight: 'bold',
   },

@@ -509,6 +509,31 @@ const handleGenerate = async () => {
           createdAt: new Date().toISOString(),
         });
   
+     // 7) Store transaction in conductor’s account (only if not cash)
+     if (cashPayment) {
+      await database().ref(`/users/accounts/${conductorUid}/transactions`).push({
+        type: "trip",
+        description: "Trip payment received",
+        conductorUid,
+        conductorName: "You",
+        amount: payment,
+        distance: parseFloat((distanceMeters / 1000).toFixed(2)),
+        createdAt: new Date().toISOString(),
+      });
+    }
+        // 7.5) Store transaction in conductor’s account (only if not cash)
+        if (cashPayment) {
+          await database().ref(`/users/accounts/${driverUid}/transactions`).push({
+            type: "trip",
+            description: "Trip payment received",
+            conductorUid,
+            conductorName: conductorName,
+            amount: payment,
+            distance: parseFloat((distanceMeters / 1000).toFixed(2)),
+            createdAt: new Date().toISOString(),
+          });
+        }
+
         // 7) Store transaction in conductor’s account (only if not cash)
         if (!cashPayment) {
           await database().ref(`/users/accounts/${conductorUid}/transactions`).push({
@@ -521,6 +546,18 @@ const handleGenerate = async () => {
             createdAt: new Date().toISOString(),
           });
         }
+            // 7.5) Store transaction in conductor’s account (only if not cash)
+            if (!cashPayment) {
+              await database().ref(`/users/accounts/${driverUid}/transactions`).push({
+                type: "trip",
+                description: "Trip payment received",
+                conductorUid,
+                conductorName: conductorName,
+                amount: payment,
+                distance: parseFloat((distanceMeters / 1000).toFixed(2)),
+                createdAt: new Date().toISOString(),
+              });
+            }
   
         // 8) Mark trip as completed
         await tripListRef.update({
