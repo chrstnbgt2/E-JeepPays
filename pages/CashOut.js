@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   StyleSheet,
   View,
@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { useNavigation } from '@react-navigation/native';
+import {useNavigation} from '@react-navigation/native';
 import auth from '@react-native-firebase/auth';
 import database from '@react-native-firebase/database';
 
@@ -26,12 +26,12 @@ const CashOutScreen = () => {
       setUserUid(currentUser.uid);
       fetchWalletBalance(currentUser.uid);
     } else {
-      Alert.alert('Error', 'You are not logged in.');
+      Alert.alert('Warning', 'You are not logged in.');
       navigation.goBack();
     }
   }, []);
 
-  const fetchWalletBalance = async (uid) => {
+  const fetchWalletBalance = async uid => {
     try {
       const userRef = database().ref(`users/accounts/${uid}`);
       const snapshot = await userRef.once('value');
@@ -50,7 +50,10 @@ const CashOutScreen = () => {
     }
 
     if (Number(amount) > currentBalance) {
-      Alert.alert('Insufficient Balance', 'You do not have enough balance to cash out this amount.');
+      Alert.alert(
+        'Insufficient Balance',
+        'You do not have enough balance to cash out this amount.',
+      );
       return;
     }
 
@@ -60,23 +63,26 @@ const CashOutScreen = () => {
       // Process cash-out transaction with GCash
       await createCashOutTransaction(Number(amount));
 
-      Alert.alert('Cash-Out Request Sent', `Your ₱${amount} cash-out request has been submitted via GCash.`);
+      Alert.alert(
+        'Cash-Out Request Sent',
+        `Your ₱${amount} cash-out request has been submitted via GCash.`,
+      );
       navigation.goBack(); // Navigate back after success
     } catch (error) {
-      Alert.alert('Error', 'Failed to process cash-out. Please try again.');
+      Alert.alert('Warning', 'Failed to process cash-out. Please try again.');
       console.error('Error:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const createCashOutTransaction = async (cashOutAmount) => {
+  const createCashOutTransaction = async cashOutAmount => {
     try {
       const userRef = database().ref(`users/accounts/${userUid}`);
 
       // Subtract cash-out amount from wallet balance
       const newBalance = currentBalance - cashOutAmount;
-      await userRef.update({ wallet_balance: newBalance });
+      await userRef.update({wallet_balance: newBalance});
 
       // Log the cash-out transaction
       const transactionData = {
@@ -88,7 +94,9 @@ const CashOutScreen = () => {
         type: 'cash_out',
       };
 
-      await database().ref(`users/accounts/${userUid}/transactions`).push(transactionData);
+      await database()
+        .ref(`users/accounts/${userUid}/transactions`)
+        .push(transactionData);
 
       const notificationData = {
         userUid,
@@ -100,7 +108,9 @@ const CashOutScreen = () => {
         type: 'cash_out',
       };
 
-      await database().ref(`/notification_user/${userUid}`).push(notificationData);
+      await database()
+        .ref(`/notification_user/${userUid}`)
+        .push(notificationData);
 
       console.log('Cash-out transaction logged:', transactionData);
     } catch (error) {
@@ -112,13 +122,22 @@ const CashOutScreen = () => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()} disabled={loading}>
-          <Ionicons name="arrow-back" size={24} color={loading ? '#ccc' : '#000'} />
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          disabled={loading}>
+          <Ionicons
+            name="arrow-back"
+            size={24}
+            color={loading ? '#ccc' : '#000'}
+          />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Cash Out</Text>
       </View>
 
-      <Text style={styles.sectionTitle}>Available Balance: ₱{currentBalance.toFixed(2)}</Text>
+      <Text style={styles.sectionTitle}>
+        Available Balance: ₱{currentBalance.toFixed(2)}
+      </Text>
 
       <Text style={styles.sectionTitle}>Cash-Out Method</Text>
       <View style={styles.card}>

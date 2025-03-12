@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
   StyleSheet,
   View,
@@ -14,15 +14,20 @@ import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityI
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import Geolocation from 'react-native-geolocation-service';
 import database from '@react-native-firebase/database';
-import { geohashForLocation } from 'geofire-common';
+import {geohashForLocation} from 'geofire-common';
 import auth from '@react-native-firebase/auth';
-import { request, PERMISSIONS, RESULTS, openSettings } from 'react-native-permissions';
-import { useNavigation } from '@react-navigation/native';
-import { FlatList } from 'react-native-gesture-handler';
- 
+import {
+  request,
+  PERMISSIONS,
+  RESULTS,
+  openSettings,
+} from 'react-native-permissions';
+import {useNavigation} from '@react-navigation/native';
+import {FlatList} from 'react-native-gesture-handler';
+
 const HomeScreenDriver = () => {
   const navigation = useNavigation();
- 
+
   const [currentLocation, setCurrentLocation] = useState(null);
   const [walletBalance, setWalletBalance] = useState(0);
   const [username, setUsername] = useState('User');
@@ -39,29 +44,30 @@ const HomeScreenDriver = () => {
   const [cashlessPayment, setCashlessIncome] = useState(0.0);
   const [isCashPayment, setIsCashPayment] = useState(true); // Toggle for Cash/Cashless
 
-
- //FETCH DETAILS
+  //FETCH DETAILS
   useEffect(() => {
     if (driverUid) {
       const userRef = database().ref(`users/accounts/${driverUid}`);
-  
-      userRef.on('value', async (snapshot) => {
+
+      userRef.on('value', async snapshot => {
         if (snapshot.exists()) {
           const userData = snapshot.val();
           setUsername(userData.firstName || 'Driver');
           setWalletBalance(parseFloat(userData.wallet_balance) || 0);
-  
+
           const jeepneyUid = userData.jeep_assigned;
           if (!jeepneyUid) {
             console.warn('No jeepney assigned to this driver.');
             return;
           }
-  
+
           // Fetch total passengers & income (NOT reset daily)
           const today = new Date().toISOString().split('T')[0];
-          const jeepneyStatsRef = database().ref(`/jeepneys/${jeepneyUid}/dailyStats/${today}`);
-  
-          jeepneyStatsRef.on("value", (statsSnapshot) => {
+          const jeepneyStatsRef = database().ref(
+            `/jeepneys/${jeepneyUid}/dailyStats/${today}`,
+          );
+
+          jeepneyStatsRef.on('value', statsSnapshot => {
             if (statsSnapshot.exists()) {
               const statsData = statsSnapshot.val();
               setTotalPassengers(statsData.totalPassengers || 0);
@@ -70,33 +76,33 @@ const HomeScreenDriver = () => {
               setCashlessIncome(parseFloat(statsData.cashlessPayment || 0));
             } else {
               setTotalPassengers(0);
-              setTotalIncome("0.00");
-              setCashIncome("0.00");
-              setCashlessIncome("0.00");
+              setTotalIncome('0.00');
+              setCashIncome('0.00');
+              setCashlessIncome('0.00');
             }
           });
-  
+
           // Fetch last 5 transactions (sorted by `createdAt`, latest first)
           const transactionsRef = database()
             .ref(`users/accounts/${driverUid}/transactions`)
-            .orderByChild("createdAt") // ✅ Order by timestamp
+            .orderByChild('createdAt') // ✅ Order by timestamp
             .limitToLast(5); // ✅ Limit to latest 5
-  
-          transactionsRef.on('value', (snapshot) => {
+
+          transactionsRef.on('value', snapshot => {
             if (snapshot.exists()) {
               const transactions = Object.values(snapshot.val());
-  
+
               // ✅ Sort transactions in descending order (newest first)
               const sortedTransactions = transactions.sort(
-                (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+                (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
               );
-  
+
               setLatestTransactions(sortedTransactions);
             } else {
               setLatestTransactions([]);
             }
           });
-  
+
           // Cleanup listener on unmount
           return () => {
             userRef.off();
@@ -104,15 +110,14 @@ const HomeScreenDriver = () => {
           };
         }
       });
-  
+
       return () => {
         userRef.off();
       };
     }
   }, [driverUid]);
-  
 
-  const formatDate = (timestamp) => {
+  const formatDate = timestamp => {
     if (!timestamp) return 'N/A';
     const date = new Date(timestamp);
     return date.toLocaleString('en-US', {
@@ -124,12 +129,12 @@ const HomeScreenDriver = () => {
     });
   };
 
-  const renderTransactionCard = ({ item }) => {
+  const renderTransactionCard = ({item}) => {
     const amount = parseFloat(item.amount) || 0;
     let iconName = 'wallet-outline';
     let transactionTitle = 'Cash In';
     let color = '#466B66';
-  
+
     if (item.type === 'trip') {
       iconName = 'car-outline';
       transactionTitle = 'Trip Payment';
@@ -142,52 +147,62 @@ const HomeScreenDriver = () => {
       transactionTitle = 'Received';
       color = '#4CAF50';
     }
-  
+
     return (
       <View style={styles.transactionCard}>
         <View style={styles.transactionHeader}>
-          <Ionicons name={iconName} size={30} color={color} style={styles.transactionIcon} />
+          <Ionicons
+            name={iconName}
+            size={30}
+            color={color}
+            style={styles.transactionIcon}
+          />
           <View style={styles.transactionInfo}>
             <Text style={styles.transactionTitle}>{transactionTitle}</Text>
-            <Text style={styles.transactionDate}>{formatDate(item.createdAt)}</Text>
+            <Text style={styles.transactionDate}>
+              {formatDate(item.createdAt)}
+            </Text>
           </View>
         </View>
         <View style={styles.transactionDetails}>
-          <Text style={[styles.transactionAmount, { color }]}>₱{amount.toFixed(2)}</Text>
+          <Text style={[styles.transactionAmount, {color}]}>
+            ₱{amount.toFixed(2)}
+          </Text>
           {item.type === 'trip' && (
             <Text style={styles.transactionDistance}>
               Distance: {item.distance?.toFixed(2) || '0.00'} km
             </Text>
           )}
           {item.type === 'received' && item.sender && (
-            <Text style={styles.transactionDetailsText}>From: {item.sender}</Text>
+            <Text style={styles.transactionDetailsText}>
+              From: {item.sender}
+            </Text>
           )}
         </View>
       </View>
     );
   };
-  
- 
+
   useEffect(() => {
     if (driverUid) {
       // Subscribe to the user's balance
       const userRef = database().ref(`users/accounts/${driverUid}`);
-      const balanceListener = userRef.on('value', (snapshot) => {
+      const balanceListener = userRef.on('value', snapshot => {
         const userData = snapshot.val();
         if (userData) {
           setWalletBalance(parseFloat(userData.wallet_balance) || 0);
 
-          setUsername(userData.firstName || 'Username');  
+          setUsername(userData.firstName || 'Username');
         }
       });
 
       return () => {
-        userRef.off('value', balanceListener);  
+        userRef.off('value', balanceListener);
       };
     }
   }, [driverUid]);
 
- //NOTIFICATION
+  //NOTIFICATION
   useEffect(() => {
     let userRef, notificationRef;
 
@@ -203,22 +218,36 @@ const HomeScreenDriver = () => {
 
         // Listener for user details
         userRef = database().ref(`users/accounts/${uid}`);
-        userRef.on('value', (userSnapshot) => {
+        userRef.on('value', userSnapshot => {
           if (userSnapshot.exists()) {
             const userData = userSnapshot.val();
             setUsername(userData.firstName || '');
-            setWalletBalance(userData.wallet_balance ? userData.wallet_balance.toFixed(2) : '0.00');
+            setWalletBalance(
+              userData.wallet_balance
+                ? userData.wallet_balance.toFixed(2)
+                : '0.00',
+            );
           } else {
             console.warn('No user data found.');
           }
         });
 
-        // Listener for unread notifications
-        notificationRef = database().ref(`notification_user/${uid}`);
-        notificationRef.on('value', (snapshot) => {
+        const notificationRef = database().ref(`notification_user/${uid}`);
+        notificationRef.on('value', snapshot => {
           if (snapshot.exists()) {
+            const now = new Date().getTime(); // Current timestamp in milliseconds
+            const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000; // 7 days ago
+
             const notifications = Object.values(snapshot.val());
-            const unreadCount = notifications.filter((notif) => notif.status === 'unread').length;
+
+            const unreadCount = notifications.filter(notif => {
+              // ✅ Convert ISO date string to timestamp
+              const notifTimestamp = new Date(notif.createdAt).getTime();
+
+              // ✅ Ensure it’s unread and within 7 days
+              return notif.status === 'unread' && notifTimestamp >= oneWeekAgo;
+            }).length;
+
             setUnreadNotifications(unreadCount);
           } else {
             setUnreadNotifications(0);
@@ -237,33 +266,36 @@ const HomeScreenDriver = () => {
     };
   }, []);
 
-
   useEffect(() => {
     if (!driverUid) return;
-  
+
     const userRef = database().ref(`users/accounts/${driverUid}`);
-  
-    userRef.once('value').then((snapshot) => {
+
+    userRef.once('value').then(snapshot => {
       if (!snapshot.exists()) return;
       const userData = snapshot.val();
       const jeepneyUid = userData.jeep_assigned;
-  
+
       if (!jeepneyUid) {
         console.warn('No jeepney assigned.');
         return;
       }
-  
+
       // ✅ Listen for real-time jeepney status updates
-      jeepneyStatusRef.current = database().ref(`jeepneys/${jeepneyUid}/status`);
-      jeepneyStatusRef.current.on('value', (statusSnapshot) => {
+      jeepneyStatusRef.current = database().ref(
+        `jeepneys/${jeepneyUid}/status`,
+      );
+      jeepneyStatusRef.current.on('value', statusSnapshot => {
         if (statusSnapshot.exists()) {
           const status = statusSnapshot.val();
           setJeepneyStatus(status);
-  
+
           console.log(`(NOBRIDGE) LOG 🚗 Jeepney status changed: ${status}`);
-  
+
           if (status === 'in-service') {
-            console.log('🚗 Jeepney is in-service. Ensuring tracking is running...');
+            console.log(
+              '🚗 Jeepney is in-service. Ensuring tracking is running...',
+            );
             requestLocationPermission(); // 🚀 Always request permission before tracking
           } else if (status === 'out-of-service') {
             console.warn('⛔ Jeepney is out-of-service. Stopping tracking.');
@@ -272,7 +304,7 @@ const HomeScreenDriver = () => {
         }
       });
     });
-  
+
     return () => {
       if (jeepneyStatusRef.current) {
         jeepneyStatusRef.current.off();
@@ -280,71 +312,75 @@ const HomeScreenDriver = () => {
       stopLocationTracking();
     };
   }, [driverUid]);
-  
 
   const requestLocationPermission = async () => {
     try {
       const result = await request(
         Platform.OS === 'android'
           ? PERMISSIONS.ANDROID.ACCESS_FINE_LOCATION
-          : PERMISSIONS.IOS.LOCATION_WHEN_IN_USE
+          : PERMISSIONS.IOS.LOCATION_WHEN_IN_USE,
       );
-  
+
       if (result !== RESULTS.GRANTED) {
         Alert.alert(
           'Permission Denied',
           'Location permission is required for real-time tracking.',
           [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Open Settings', onPress: () => openSettings() },
-          ]
+            {text: 'Cancel', style: 'cancel'},
+            {text: 'Open Settings', onPress: () => openSettings()},
+          ],
         );
         return;
       }
-  
+
       console.log('✅ Location permission granted');
       startLocationTracking(); // Start tracking immediately
     } catch (error) {
       console.error('❌ Error requesting location permission:', error);
     }
   };
-  
 
   const startLocationTracking = () => {
-    console.log("📍 Attempting to start real-time location tracking...");
-  
+    console.log('📍 Attempting to start real-time location tracking...');
+
     // Clear existing watchID before starting a new one
     if (watchIdRef.current !== null) {
-      console.warn("⛔ Existing tracking detected, stopping first...");
+      console.warn('⛔ Existing tracking detected, stopping first...');
       Geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
     }
-  
-    console.log("✅ Starting fresh tracking...");
-  
+
+    console.log('✅ Starting fresh tracking...');
+
     watchIdRef.current = Geolocation.watchPosition(
-      (position) => {
-        const { latitude, longitude } = position.coords;
+      position => {
+        const {latitude, longitude} = position.coords;
         setCurrentLocation([longitude, latitude]);
-  
+
         console.log(`📡 Location updated: ${latitude}, ${longitude}`);
-  
+
         if (driverUid) {
           updateDriverLocation(latitude, longitude, driverUid);
         }
       },
-      (error) => {
-        console.error("❌ GPS Error:", error);
-        Alert.alert("GPS Error", "Unable to fetch current location. Ensure GPS is enabled.");
-  
+      error => {
+        console.error('❌ GPS Error:', error);
+        Alert.alert(
+          'GPS Error',
+          'Unable to fetch current location. Ensure GPS is enabled.',
+        );
+
         // Reset watchID to allow reattempting tracking
         watchIdRef.current = null;
       },
-      { enableHighAccuracy: true, distanceFilter: 5, interval: 5000, fastestInterval: 2000 }
+      {
+        enableHighAccuracy: true,
+        distanceFilter: 5,
+        interval: 5000,
+        fastestInterval: 2000,
+      },
     );
   };
-  
-
 
   const stopLocationTracking = () => {
     if (watchIdRef.current !== null) {
@@ -352,18 +388,21 @@ const HomeScreenDriver = () => {
       Geolocation.clearWatch(watchIdRef.current);
       watchIdRef.current = null;
     }
-  
+
     if (driverUid) {
-      database().ref(`jeep_loc/${driverUid}`).remove()
+      database()
+        .ref(`jeep_loc/${driverUid}`)
+        .remove()
         .then(() => console.log('🗑️ Driver location removed from Firebase'))
-        .catch((error) => console.error('❌ Error removing driver location:', error));
+        .catch(error =>
+          console.error('❌ Error removing driver location:', error),
+        );
     }
   };
-  
 
   const updateDriverLocation = (latitude, longitude, driverUid) => {
     const geohash = geohashForLocation([latitude, longitude]);
-  
+
     console.log('🔄 Updating Firebase location...');
     database()
       .ref(`jeep_loc/${driverUid}`)
@@ -374,12 +413,10 @@ const HomeScreenDriver = () => {
         timestamp: Date.now(),
       })
       .then(() => console.log('✅ Location saved to Firebase'))
-      .catch((error) => console.error('❌ Error updating driver location:', error));
+      .catch(error =>
+        console.error('❌ Error updating driver location:', error),
+      );
   };
-  
-
-
-  
 
   return (
     <View style={styles.container}>
@@ -390,23 +427,32 @@ const HomeScreenDriver = () => {
             Welcome! <Text style={styles.username}>@{username}</Text>
           </Text>
           <TouchableOpacity
-              onPress={() => navigation.navigate('Notifications', { uid: auth().currentUser.uid })}
-            >
-              <View style={styles.notificationIconContainer}>
-                <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
-                {unreadNotifications > 0 && (
-                  <View style={styles.notificationDot}>
-                    <Text style={styles.notificationCount}>
-                      {unreadNotifications > 9 ? '9+' : unreadNotifications}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </TouchableOpacity>
+            onPress={() =>
+              navigation.navigate('Notifications', {
+                uid: auth().currentUser.uid,
+              })
+            }>
+            <View style={styles.notificationIconContainer}>
+              <Ionicons
+                name="notifications-outline"
+                size={24}
+                color="#FFFFFF"
+              />
+              {unreadNotifications > 0 && (
+                <View style={styles.notificationDot}>
+                  <Text style={styles.notificationCount}>
+                    {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
         </View>
         <View style={styles.walletSection}>
           <View style={styles.walletInfo}>
-          <Text style={styles.walletBalance}>₱ {parseFloat(walletBalance).toFixed(2)}</Text>
+            <Text style={styles.walletBalance}>
+              ₱ {parseFloat(walletBalance).toFixed(2)}
+            </Text>
 
             <Text style={styles.walletLabel}>Wallet Balance</Text>
           </View>
@@ -416,8 +462,7 @@ const HomeScreenDriver = () => {
           />
           <TouchableOpacity
             style={styles.cashOutButton}
-            onPress={() => navigation.navigate('Cashout')}
-          >
+            onPress={() => navigation.navigate('Cashout')}>
             <Text style={styles.cashOutText}>Cash Out</Text>
           </TouchableOpacity>
         </View>
@@ -427,111 +472,119 @@ const HomeScreenDriver = () => {
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Dashboard</Text>
-          <Image source={require('../assets/images/line.png')} style={styles.lineImage} />
+          <Image
+            source={require('../assets/images/line.png')}
+            style={styles.lineImage}
+          />
         </View>
 
-               <View>
-         {/* Toggle Button */}
-      
-         <MaterialCommunityIcons  style={styles.toggleButton}
-         onPress={() => setIsCashPayment(prev => !prev)} 
-         name="swap-horizontal-circle" size={30} color="#466B66" />
-     
-       
-         {/* Dashboard Section */}
-         {isCashPayment ? (
-           // Cash Payment View
-           <View style={styles.dashboard}>
-             {/* Fare Rate Card */}
-             <ImageBackground
-               source={require('../assets/images/card-gradient.png')}
-               style={styles.card}
-               imageStyle={styles.cardImageBackground}
-             >
-               <MaterialCommunityIcons name="account-group" size={40} color="#FFFFFF" />
-               <Text style={styles.cardValue}>{totalPassengers}</Text>
-               <Text style={styles.cardLabel}>Total Passenger</Text>
-             </ImageBackground>
-       
-             {/* Total Income Card */}
-             <ImageBackground
-               source={require('../assets/images/card-gradient.png')}
-               style={styles.card}
-               imageStyle={styles.cardImageBackground}
-             >
-               <FontAwesome5 name="coins" size={40} color="#FFFFFF" />
-               <Text style={styles.cardValue}>₱{totalIncome}</Text>
-               <Text style={styles.cardLabel}>Total Income</Text>
-             </ImageBackground>
-           </View>
-         ) : (
-           // Cashless Payment View
-           <View style={styles.dashboard}>
-             {/* Fare Rate Card */}
-             <ImageBackground
-               source={require('../assets/images/card-gradient.png')}
-               style={styles.card}
-               imageStyle={styles.cardImageBackground}
-             >
-               <MaterialCommunityIcons name="cash" size={40} color="#FFFFFF" />
-               <Text style={styles.cardValue}>₱{cashlessPayment}</Text>
-               <Text style={styles.cardLabel}>Total Cashless</Text>
-             </ImageBackground>
-       
-             {/* Total Income Card */}
-             <ImageBackground
-               source={require('../assets/images/card-gradient.png')}
-               style={styles.card}
-               imageStyle={styles.cardImageBackground}
-             >
-               <FontAwesome5 name="coins" size={40} color="#FFFFFF" />
-               <Text style={styles.cardValue}>₱{cashPayment}</Text>
-               <Text style={styles.cardLabel}>Total Cash</Text>
-             </ImageBackground>
-           </View>
-         )}
-       </View>
+        <View>
+          {/* Toggle Button */}
+
+          <MaterialCommunityIcons
+            style={styles.toggleButton}
+            onPress={() => setIsCashPayment(prev => !prev)}
+            name="swap-horizontal-circle"
+            size={30}
+            color="#466B66"
+          />
+
+          {/* Dashboard Section */}
+          {isCashPayment ? (
+            // Cash Payment View
+            <View style={styles.dashboard}>
+              {/* Fare Rate Card */}
+              <ImageBackground
+                source={require('../assets/images/card-gradient.png')}
+                style={styles.card}
+                imageStyle={styles.cardImageBackground}>
+                <MaterialCommunityIcons
+                  name="account-group"
+                  size={40}
+                  color="#FFFFFF"
+                />
+                <Text style={styles.cardValue}>{totalPassengers}</Text>
+                <Text style={styles.cardLabel}>Total Passenger</Text>
+              </ImageBackground>
+
+              {/* Total Income Card */}
+              <ImageBackground
+                source={require('../assets/images/card-gradient.png')}
+                style={styles.card}
+                imageStyle={styles.cardImageBackground}>
+                <FontAwesome5 name="coins" size={40} color="#FFFFFF" />
+                <Text style={styles.cardValue}>₱{totalIncome}</Text>
+                <Text style={styles.cardLabel}>Total Income</Text>
+              </ImageBackground>
+            </View>
+          ) : (
+            // Cashless Payment View
+            <View style={styles.dashboard}>
+              {/* Fare Rate Card */}
+              <ImageBackground
+                source={require('../assets/images/card-gradient.png')}
+                style={styles.card}
+                imageStyle={styles.cardImageBackground}>
+                <MaterialCommunityIcons name="cash" size={40} color="#FFFFFF" />
+                <Text style={styles.cardValue}>₱{cashlessPayment}</Text>
+                <Text style={styles.cardLabel}>Total Cashless</Text>
+              </ImageBackground>
+
+              {/* Total Income Card */}
+              <ImageBackground
+                source={require('../assets/images/card-gradient.png')}
+                style={styles.card}
+                imageStyle={styles.cardImageBackground}>
+                <FontAwesome5 name="coins" size={40} color="#FFFFFF" />
+                <Text style={styles.cardValue}>₱{cashPayment}</Text>
+                <Text style={styles.cardLabel}>Total Cash</Text>
+              </ImageBackground>
+            </View>
+          )}
+        </View>
 
         {/* Transactions Section */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Transactions</Text>
-          <Image source={require('../assets/images/line.png')} style={styles.lineImage} />
+          <Image
+            source={require('../assets/images/line.png')}
+            style={styles.lineImage}
+          />
         </View>
         <View style={styles.transactionList}>
-        {latestTransactions.length > 0 ? (
-      <FlatList
-        data={latestTransactions}
-        keyExtractor={(item, index) => index.toString()}
-        renderItem={renderTransactionCard} // ✅ **Now correctly used**
-        style={{ maxHeight: 170 }} // Limit height for proper scrolling
-  showsVerticalScrollIndicator={false} 
-  nestedScrollEnabled={true} // Enable nested scrolling to avoid errors
-      />
-    ) : (
-      <Text style={styles.noTransactionsText}>No recent transactions available.</Text>
-    )}
-
+          {latestTransactions.length > 0 ? (
+            <FlatList
+              data={latestTransactions}
+              keyExtractor={(item, index) => index.toString()}
+              renderItem={renderTransactionCard} // ✅ **Now correctly used**
+              style={{maxHeight: 170}} // Limit height for proper scrolling
+              showsVerticalScrollIndicator={false}
+              nestedScrollEnabled={true} // Enable nested scrolling to avoid errors
+            />
+          ) : (
+            <Text style={styles.noTransactionsText}>
+              No recent transactions available.
+            </Text>
+          )}
         </View>
       </ScrollView>
     </View>
   );
 };
 
-
 const styles = StyleSheet.create({
   toggleButton: {
-     
-   marginRight:-40,
+    marginRight: -40,
     marginTop: -35,
     width: '20%', // Matches card width
-   alignSelf: 'flex-end'
+    alignSelf: 'flex-end',
   },
   toggleButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
   },
-  
+
   container: {
     flex: 1,
     backgroundColor: '#F4F4F4',
@@ -616,7 +669,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 20,
-    
   },
   card: {
     borderRadius: 15,
@@ -677,14 +729,11 @@ const styles = StyleSheet.create({
     shadowColor: '#000',
     shadowOpacity: 0.1,
     shadowRadius: 5,
-    shadowOffset: { width: 0, height: 2 },
-   
-   
+    shadowOffset: {width: 0, height: 2},
   },
   transactionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
- 
   },
   transactionIcon: {
     marginRight: 15,
@@ -720,7 +769,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#999',
     marginTop: 20,
-  },notificationDot: {
+  },
+  notificationDot: {
     position: 'absolute',
     top: -5,
     right: -5,
@@ -736,7 +786,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   },
-  
 });
 
 export default HomeScreenDriver;

@@ -1,21 +1,23 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, {useEffect, useRef, useState} from 'react';
 import {
   StyleSheet,
   View,
   Text,
   TouchableOpacity,
   Modal,
-  Alert,Platform,NativeModules 
+  Alert,
+  Platform,
+  NativeModules,
 } from 'react-native';
 import QRCode from 'react-native-qrcode-svg';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { useNavigation } from '@react-navigation/native';
+import {useNavigation} from '@react-navigation/native';
 import auth from '@react-native-firebase/auth';
 import database from '@react-native-firebase/database';
 import ViewShot from 'react-native-view-shot';
 import RNFS from 'react-native-fs';
 import Share from 'react-native-share';
- 
+
 const MyQRScreenShareConductor = () => {
   const navigation = useNavigation();
   const [modalVisible, setModalVisible] = useState(false);
@@ -25,9 +27,8 @@ const MyQRScreenShareConductor = () => {
   const [maskedPhone, setMaskedPhone] = useState('');
   const [username, setUsername] = useState('');
   const [qrValue, setQrValue] = useState('');
- 
- 
-  const triggerMediaScanner = async (filePath) => {
+
+  const triggerMediaScanner = async filePath => {
     try {
       await RNFS.scanFile(filePath); // Pass the string file path directly
       console.log('MediaScanner updated for file:', filePath);
@@ -35,7 +36,6 @@ const MyQRScreenShareConductor = () => {
       console.error('MediaScanner error:', err);
     }
   };
-  
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -61,7 +61,10 @@ const MyQRScreenShareConductor = () => {
           setName(`${firstName} ${lastNameInitial}.`);
 
           const phoneNumber = userData.phone || '';
-          const masked = phoneNumber.replace(/(\d{2})\d{5}(\d{2})/, '$1XXXXX$2');
+          const masked = phoneNumber.replace(
+            /(\d{2})\d{5}(\d{2})/,
+            '$1XXXXX$2',
+          );
           setMaskedPhone(masked);
 
           setUsername(`@${firstName}`);
@@ -80,106 +83,101 @@ const MyQRScreenShareConductor = () => {
     try {
       const uri = await viewShotRef.current.capture();
       console.log('Captured URI:', uri);
-  
+
       const directoryPath = `${RNFS.ExternalStorageDirectoryPath}/Pictures/MyApp`;
       const fileName = `QR_${Date.now()}.png`;
       const filePath = `${directoryPath}/${fileName}`;
-  
+
       // Ensure the directory exists
       if (!(await RNFS.exists(directoryPath))) {
         console.log('Creating directory:', directoryPath);
         await RNFS.mkdir(directoryPath);
       }
-  
+
       const base64 = await RNFS.readFile(uri, 'base64');
       await RNFS.writeFile(filePath, base64, 'base64');
-  
+
       console.log('File successfully written to:', filePath);
       Alert.alert('Success', `QR code saved to: ${filePath}`);
-  
+
       // Trigger Media Scanner
       await triggerMediaScanner(filePath);
     } catch (error) {
       console.error('Error saving QR code:', error);
-  
+
       if (error.message.includes('EACCES')) {
         Alert.alert(
           'Permission Denied',
-          'Your app does not have access to write to storage. Please enable storage access in settings.'
+          'Your app does not have access to write to storage. Please enable storage access in settings.',
         );
       } else {
-        Alert.alert('Error', 'Failed to save QR code. Please try again.');
+        Alert.alert('Warning', 'Failed to save QR code. Please try again.');
       }
     }
   };
-  
-  
-  
+
   const handleGenerate = async () => {
     if (!passengerType) {
-      Alert.alert('Error', 'Please select a passenger type.');
+      Alert.alert('Warning', 'Please select a passenger type.');
       return;
     }
-  
+
     try {
       const currentUser = auth().currentUser;
       if (!currentUser) {
         Alert.alert('Error', 'You must be logged in to generate a QR code.');
         return;
       }
-  
+
       const userLoggedUid = currentUser.uid;
       const dailyCountRef = database().ref(`usernameCount/${userLoggedUid}`);
       const currentDate = new Date().toISOString().split('T')[0];
-  
-      let newUsernameCount = await dailyCountRef.transaction((data) => {
-        if (data && data.date === currentDate) {
-          return { date: currentDate, count: data.count + 1 }; // Increment safely
-        } else {
-          return { date: currentDate, count: 1 }; // Reset if new day
-        }
-      }).then((result) => result.committed ? result.snapshot.val().count : 1);
-  
+
+      let newUsernameCount = await dailyCountRef
+        .transaction(data => {
+          if (data && data.date === currentDate) {
+            return {date: currentDate, count: data.count + 1}; // Increment safely
+          } else {
+            return {date: currentDate, count: 1}; // Reset if new day
+          }
+        })
+        .then(result => (result.committed ? result.snapshot.val().count : 1));
+
       // Ensure we fetched the correct count
       if (!newUsernameCount) {
-        Alert.alert('Error', 'Failed to fetch username count.');
+        Alert.alert('Warning', 'Failed to fetch username count.');
         return;
       }
-  
+
       // Create new temp QR reference
       const tempRef = database().ref(`temporary/${userLoggedUid}`).push();
-      const generatedUid = tempRef.key;  
-  
+      const generatedUid = tempRef.key;
+
       const tempData = {
         createdAt: new Date().toISOString(),
-        status: "enabled",
+        status: 'enabled',
         type: passengerType,
         username: `${newUsernameCount}`, // Ensures unique username per day
       };
-  
+
       await tempRef.set(tempData); // Store QR code data
-  
+
       console.log(`Temporary QR Code generated: ${generatedUid}`);
       console.log(`Generated Username: ${newUsernameCount}`);
-  
-      setQrValue(generatedUid); 
-      setModalVisible(false); 
-  
+
+      setQrValue(generatedUid);
+      setModalVisible(false);
+
       navigation.navigate('GenerateQR', {
         passengerType,
-        userId: userLoggedUid,  
-        qrValue: generatedUid,  
+        userId: userLoggedUid,
+        qrValue: generatedUid,
       });
-      
     } catch (error) {
       console.error('Error generating temporary QR:', error);
-      Alert.alert('Error', 'Failed to generate QR code. Please try again.');
+      Alert.alert('Warning', 'Failed to generate QR code. Please try again.');
     }
   };
-  
-  
-  
-
 
   return (
     <View style={styles.container}>
@@ -187,15 +185,14 @@ const MyQRScreenShareConductor = () => {
       <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
+          onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back-outline" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>QR Code Share</Text>
       </View>
 
       {/* QR Card */}
-      <ViewShot ref={viewShotRef} options={{ format: 'png', quality: 1 }}>
+      <ViewShot ref={viewShotRef} options={{format: 'png', quality: 1}}>
         <View style={styles.card}>
           <Text style={styles.username}>{username}</Text>
           <View style={styles.qrContainer}>
@@ -217,8 +214,7 @@ const MyQRScreenShareConductor = () => {
       <View style={styles.actionButtons}>
         <TouchableOpacity
           style={styles.createButton}
-          onPress={() => setModalVisible(true)}
-        >
+          onPress={() => setModalVisible(true)}>
           <Text style={styles.buttonText}>Create QR Code</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.saveButton} onPress={saveQrCode}>
@@ -231,8 +227,7 @@ const MyQRScreenShareConductor = () => {
         visible={modalVisible}
         transparent={true}
         animationType="slide"
-        onRequestClose={() => setModalVisible(false)}
-      >
+        onRequestClose={() => setModalVisible(false)}>
         <View style={styles.modalContainer}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Type of Passenger</Text>
@@ -242,8 +237,7 @@ const MyQRScreenShareConductor = () => {
                   ? styles.selectedOption
                   : styles.option
               }
-              onPress={() => setPassengerType('Regular')}
-            >
+              onPress={() => setPassengerType('Regular')}>
               <Text style={styles.optionText}>REGULAR</Text>
             </TouchableOpacity>
             <TouchableOpacity
@@ -252,11 +246,12 @@ const MyQRScreenShareConductor = () => {
                   ? styles.selectedOption
                   : styles.option
               }
-              onPress={() => setPassengerType('Discount')}
-            >
+              onPress={() => setPassengerType('Discount')}>
               <Text style={styles.optionText}>DISCOUNTED</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.generateButton} onPress={handleGenerate}>
+            <TouchableOpacity
+              style={styles.generateButton}
+              onPress={handleGenerate}>
               <Text style={styles.generateButtonText}>Generate</Text>
             </TouchableOpacity>
           </View>

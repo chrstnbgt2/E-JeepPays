@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   StyleSheet,
   View,
@@ -8,11 +8,11 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import { Picker } from '@react-native-picker/picker';
+import {Picker} from '@react-native-picker/picker';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import DocumentPicker from 'react-native-document-picker';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useNavigation } from '@react-navigation/native';
+import {useNavigation} from '@react-navigation/native';
 import auth from '@react-native-firebase/auth';
 import database from '@react-native-firebase/database';
 import storage from '@react-native-firebase/storage';
@@ -24,13 +24,12 @@ const DiscountScreen = () => {
   const [selectedFile, setSelectedFile] = useState(null);
   const [birthDate, setBirthDate] = useState(new Date());
   const [isDatePickerVisible, setDatePickerVisible] = useState(false);
-  
+  const [discountType, setDiscountType] = useState(''); // New state for discount type
+
   const [status, setStatus] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSubmitting, setIsSubmitting] = useState(false);  
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  
-  
   const [formData, setFormData] = useState({
     firstName: '',
     middleName: '',
@@ -43,6 +42,9 @@ const DiscountScreen = () => {
     email: '',
   });
 
+  const [expiration, setExpiration] = useState('N/A');
+  const [discType, setdiscType] = useState('');
+
   useEffect(() => {
     const fetchSubmissionStatus = () => {
       try {
@@ -52,45 +54,70 @@ const DiscountScreen = () => {
           navigation.goBack();
           return;
         }
-  
+
         const uid = currentUser.uid;
         const userRequestsRef = database().ref(`discountRequests/${uid}`);
-  
+
         // Real-time listener for status updates
-        const onValueChange = userRequestsRef.on('value', (snapshot) => {
+        const onValueChange = userRequestsRef.on('value', snapshot => {
           if (snapshot.exists()) {
             const submissions = snapshot.val();
             let latestSubmission = null;
-  
+
             // Determine the latest submission by comparing timestamps
-            Object.values(submissions).forEach((submission) => {
+            Object.values(submissions).forEach(submission => {
               if (
                 !latestSubmission || // First record
-                (submission.timestamp && submission.timestamp > latestSubmission.timestamp)
+                (submission.timestamp &&
+                  submission.timestamp > latestSubmission.timestamp)
               ) {
                 latestSubmission = submission;
               }
             });
-  
+
+            console.log('🔹 Latest Submission Data:', latestSubmission);
+
+            // ✅ Set status
             setStatus(latestSubmission?.status || 'No Submission');
+
+            // ✅ Fetch and display discount type
+            const fetchedDiscountType = latestSubmission?.discountType || 'N/A';
+            setDiscountType(fetchedDiscountType);
+            console.log('✅ Fetched Discount Type:', fetchedDiscountType);
+
+            // ✅ Fetch expiration date if applicable
+            if (fetchedDiscountType.toLowerCase() === 'student') {
+              console.log(
+                '✅ Discount Type: Student, Expiration:',
+                latestSubmission?.expiration,
+              );
+              setExpiration(latestSubmission?.expiration || 'N/A');
+            } else {
+              setExpiration('N/A'); // Other discount types get "N/A"
+            }
           } else {
+            console.log('⚠️ No submission found in Firebase.');
             setStatus('No Submission');
+            setDiscountType('N/A');
+            setExpiration('N/A');
           }
           setIsLoading(false);
         });
-  
+
         // Cleanup listener on component unmount
         return () => userRequestsRef.off('value', onValueChange);
       } catch (error) {
-        console.error('Error fetching submission status:', error);
-        Alert.alert('Error', 'Failed to fetch submission status. Please try again.');
+        console.error('❌ Error fetching submission status:', error);
+        Alert.alert(
+          'Error',
+          'Failed to fetch submission status. Please try again.',
+        );
         setIsLoading(false);
       }
     };
-  
+
     fetchSubmissionStatus();
   }, [navigation]);
-  
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -101,11 +128,11 @@ const DiscountScreen = () => {
           navigation.goBack();
           return;
         }
-  
+
         const uid = currentUser.uid;
         const userRef = database().ref(`users/accounts/${uid}`);
-  
-        userRef.once('value').then((snapshot) => {
+
+        userRef.once('value').then(snapshot => {
           if (snapshot.exists()) {
             const userData = snapshot.val();
             setFormData({
@@ -120,8 +147,10 @@ const DiscountScreen = () => {
               email: userData.email || '',
             });
             setSelectedGender(userData.gender || '');
-            setBirthDate(userData.birthDate ? new Date(userData.birthDate) : new Date());
-  
+            setBirthDate(
+              userData.birthDate ? new Date(userData.birthDate) : new Date(),
+            );
+
             // Check if required fields are missing
             const missingFields = [
               !userData.gender && 'Gender',
@@ -131,18 +160,20 @@ const DiscountScreen = () => {
               !userData.state && 'State',
               !userData.zip && 'ZIP Code',
             ].filter(Boolean);
-  
+
             if (missingFields.length > 0) {
               Alert.alert(
                 'Incomplete Account Information',
-                `The following fields are missing: ${missingFields.join(', ')}. You need to update your account information before applying for a discount.`,
+                `The following fields are missing: ${missingFields.join(
+                  ', ',
+                )}. You need to update your account information before applying for a discount.`,
                 [
                   {
                     text: 'Update Now',
                     onPress: () => navigation.replace('AccountInformation'), // Force redirect
                   },
                 ],
-                { cancelable: false } // Prevent dismissal
+                {cancelable: false}, // Prevent dismissal
               );
             }
           } else {
@@ -156,7 +187,7 @@ const DiscountScreen = () => {
                   onPress: () => navigation.replace('AccountInformation'), // Force redirect
                 },
               ],
-              { cancelable: false } // Prevent dismissal
+              {cancelable: false}, // Prevent dismissal
             );
           }
         });
@@ -165,13 +196,12 @@ const DiscountScreen = () => {
         Alert.alert('Error', 'Failed to fetch user data. Please try again.');
       }
     };
-  
+
     fetchUserData();
   }, [navigation]);
-  
 
   const handleInputChange = (field, value) => {
-    setFormData({ ...formData, [field]: value });
+    setFormData({...formData, [field]: value});
   };
 
   const handleBrowseFiles = async () => {
@@ -189,8 +219,6 @@ const DiscountScreen = () => {
     }
   };
 
-
-
   const handleResubmit = () => {
     setStatus('No Submission');
   };
@@ -201,9 +229,8 @@ const DiscountScreen = () => {
       setBirthDate(selectedDate);
     }
   };
- 
 
-  const uploadFileToStorage = async (file) => {
+  const uploadFileToStorage = async file => {
     try {
       const tempFilePath = `${RNFS.TemporaryDirectoryPath}/${file.name}`;
       const fileContent = await RNFS.readFile(file.uri, 'base64');
@@ -238,11 +265,26 @@ const DiscountScreen = () => {
       email,
     } = formData;
 
-    if (!firstName || !lastName || !address || !city || !state || !zip || !phoneNumber || !email || !selectedGender || !selectedFile) {
-      Alert.alert('Error', 'Please fill out all required fields and upload a file.');
+    if (
+      !firstName ||
+      !lastName ||
+      !address ||
+      !city ||
+      !state ||
+      !zip ||
+      !phoneNumber ||
+      !email ||
+      !selectedGender ||
+      !discountType ||
+      !selectedFile
+    ) {
+      Alert.alert(
+        'Error',
+        'Please fill out all required fields and upload a file.',
+      );
       return;
     }
-    setIsSubmitting(true);  
+    setIsSubmitting(true);
 
     try {
       const currentUser = auth().currentUser;
@@ -250,7 +292,7 @@ const DiscountScreen = () => {
         Alert.alert('Error', 'You must be logged in to submit the form.');
         return;
       }
-      console.log("Current user:", auth().currentUser);
+      console.log('Current user:', auth().currentUser);
 
       const fileUrl = await uploadFileToStorage(selectedFile);
 
@@ -268,27 +310,33 @@ const DiscountScreen = () => {
         zip,
         phoneNumber,
         email,
+        discountType,
         fileUrl,
         status: 'Pending',
         timestamp: Date.now(),
       });
 
-      await database().ref('/notification_web').push().set({
-        fullname: `${firstName} ${lastName}`,
-        status: 'unread',
-        message: `Passenger ${firstName} ${lastName} Request for a discount.`,
-        timestamp: new Date().toISOString(),
-      });
+      await database()
+        .ref('/notification_web')
+        .push()
+        .set({
+          fullname: `${firstName} ${lastName}`,
+          status: 'unread',
+          message: `Passenger ${firstName} ${lastName} Request for a discount.`,
+          timestamp: new Date().toISOString(),
+        });
 
-
-      Alert.alert('Success', 'Your discount form has been submitted successfully.');
+      Alert.alert(
+        'Success',
+        'Your discount form has been submitted successfully.',
+      );
       navigation.goBack();
     } catch (error) {
       console.error('Error submitting discount form:', error);
-      Alert.alert('Error', 'Failed to submit the form. Please try again.');
+      Alert.alert('Warning', 'Failed to submit the form. Please try again.');
     } finally {
-      setIsSubmitting(false); 
-  }
+      setIsSubmitting(false);
+    }
   };
 
   if (isLoading) {
@@ -298,57 +346,80 @@ const DiscountScreen = () => {
       </View>
     );
   }
-
-  
   if (status === 'Pending') {
     return (
       <>
-          <View style={styles.header}>
-         <TouchableOpacity onPress={() => navigation.goBack()}>
-        <Ionicons name="arrow-back" size={24} color="#000" style={styles.backIcon}  />
-        <Text style={styles.headerTitle1}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
-
-
-      <View style={styles.container1}>
- 
-
-        <View style={styles.statusCard}>
-          <Ionicons name="hourglass" size={50} color="#F5A623" />
-          <Text style={styles.statusTitle}>We are processing your request.</Text>
-          <Text style={styles.statusDescription}>
-            Please wait for approval. We will notify you once your application is reviewed.
-          </Text>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons
+              name="arrow-back"
+              size={24}
+              color="#000"
+              style={styles.backIcon}
+            />
+            <Text style={styles.headerTitle1}>Go Back</Text>
+          </TouchableOpacity>
         </View>
-      </View>
-</>
+
+        <View style={styles.container1}>
+          <View style={styles.statusCard}>
+            <Ionicons name="hourglass" size={50} color="#F5A623" />
+            <Text style={styles.statusTitle}>
+              We are processing your request.
+            </Text>
+            <Text style={styles.statusDescription}>
+              Please wait for approval. We will notify you once your application
+              is reviewed.
+            </Text>
+          </View>
+        </View>
+      </>
     );
   }
 
   if (status === 'Approved') {
+    console.log('🔥 Rendering Student Discount Message:', {
+      status,
+      discountType,
+      expiration,
+    });
+
     return (
       <>
-         <View style={styles.header}>
-         <TouchableOpacity onPress={() => navigation.goBack()}>
-        <Ionicons name="arrow-back" size={24} color="#000" style={styles.backIcon}  />
-        <Text style={styles.headerTitle1}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
-      
-    
-      <View style={styles.container1}>
-   
-
-        <View style={[styles.statusCard, { borderColor: '#4CAF50' }]}>
-          <Ionicons name="checkmark-circle" size={50} color="#4CAF50" />
-          <Text style={styles.statusTitle}>Your application has been approved!</Text>
-          <Text style={styles.statusDescription}>
-            You can now enjoy the benefits of your discount.
-          </Text>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <Ionicons
+              name="arrow-back"
+              size={24}
+              color="#000"
+              style={styles.backIcon}
+            />
+            <Text style={styles.headerTitle1}>Go Back</Text>
+          </TouchableOpacity>
         </View>
-      </View>
 
+        <View style={styles.container1}>
+          <View style={[styles.statusCard, {borderColor: '#4CAF50'}]}>
+            <Ionicons name="checkmark-circle" size={50} color="#4CAF50" />
+            <Text style={styles.statusTitle}>
+              Your application has been approved!
+            </Text>
+            <Text style={styles.statusTitle1}>
+              Discount Type: {discountType.toUpperCase()}
+            </Text>
+            {expiration && expiration !== 'N/A' ? (
+              <Text style={styles.expirationText}>
+                🗓️ Expiration Date: {expiration}
+              </Text>
+            ) : (
+              <Text style={styles.expirationText}>No Expiration Date</Text>
+            )}
+
+            <Text style={styles.statusDescription}>
+              You can now enjoy the benefits of your discount.
+            </Text>
+          </View>
+        </View>
       </>
     );
   }
@@ -356,13 +427,17 @@ const DiscountScreen = () => {
   if (status === 'Rejected') {
     return (
       <View style={styles.container1}>
-        <View style={[styles.statusCard, { borderColor: '#F44336' }]}>
+        <View style={[styles.statusCard, {borderColor: '#F44336'}]}>
           <Ionicons name="close-circle" size={50} color="#F44336" />
-          <Text style={styles.statusTitle}>Sorry, your application was rejected.</Text>
+          <Text style={styles.statusTitle}>
+            Sorry, your application was rejected.
+          </Text>
           <Text style={styles.statusDescription}>
             Unfortunately, your application did not meet the requirements.
           </Text>
-          <TouchableOpacity style={styles.resubmitButton} onPress={handleResubmit}>
+          <TouchableOpacity
+            style={styles.resubmitButton}
+            onPress={handleResubmit}>
             <Text style={styles.resubmitButtonText}>Resubmit Application</Text>
           </TouchableOpacity>
         </View>
@@ -370,185 +445,204 @@ const DiscountScreen = () => {
     );
   }
 
-
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Ionicons name="arrow-back" size={24} color="#000" style={styles.backIcon} onPress={() => navigation.goBack()} />
+        <Ionicons
+          name="arrow-back"
+          size={24}
+          color="#000"
+          style={styles.backIcon}
+          onPress={() => navigation.goBack()}
+        />
         <Text style={styles.headerTitle}>Discount Application</Text>
       </View>
 
-     
-    
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-    <View style={styles.noteContainer}>
-        <Text style={styles.note}>
-            <Text style={styles.noteTitle}>Note:</Text> The fields are pre-filled and read-only. Only file upload is allowed.
-        </Text>
-    </View>
+        <View style={styles.noteContainer}>
+          <Text style={styles.note}>
+            <Text style={styles.noteTitle}>Note:</Text> The fields are
+            pre-filled and read-only. Only file upload is allowed.
+          </Text>
+        </View>
 
-    <Text style={styles.formTitle}>Personal Information</Text>
+        <Text style={styles.formTitle}>Personal Information</Text>
 
-    <View style={styles.row}>
-        <View style={styles.inputGroup}>
+        <View style={styles.row}>
+          <View style={styles.inputGroup}>
             <Text style={styles.label}>First Name</Text>
             <TextInput
-                style={styles.input}
-                placeholder="Enter first name"
-                placeholderTextColor="#000"
-                value={formData.firstName}
-                editable={false} // Makes the input read-only
+              style={styles.input}
+              placeholder="Enter first name"
+              placeholderTextColor="#000"
+              value={formData.firstName}
+              editable={false} // Makes the input read-only
             />
-        </View>
-        <View style={styles.inputGroup}>
+          </View>
+          <View style={styles.inputGroup}>
             <Text style={styles.label}>Middle Name</Text>
             <TextInput
-                style={styles.input}
-                placeholder="Enter middle name"
-                placeholderTextColor="#000"
-                value={formData.middleName}
-                editable={false}
+              style={styles.input}
+              placeholder="Enter middle name"
+              placeholderTextColor="#000"
+              value={formData.middleName}
+              editable={false}
             />
-        </View>
-        <View style={styles.inputGroup}>
+          </View>
+          <View style={styles.inputGroup}>
             <Text style={styles.label}>Last Name</Text>
             <TextInput
-                style={styles.input}
-                placeholder="Enter last name"
-                placeholderTextColor="#000"
-                value={formData.lastName}
-                editable={false}
+              style={styles.input}
+              placeholder="Enter last name"
+              placeholderTextColor="#000"
+              value={formData.lastName}
+              editable={false}
             />
+          </View>
         </View>
-    </View>
 
-    <View style={styles.row}>
-        <View style={styles.inputGroup}>
+        <View style={styles.row}>
+          <View style={styles.inputGroup}>
             <Text style={styles.label}>Gender</Text>
             <View style={styles.pickerContainer}>
-                <Picker
-                    selectedValue={selectedGender}
-                    enabled={false} // Makes the dropdown read-only
-                    style={styles.picker}
-                >
-                    <Picker.Item label="Select Gender" value="" />
-                    <Picker.Item label="Male" value="Male" />
-                    <Picker.Item label="Female" value="Female" />
-                    <Picker.Item label="Other" value="Other" />
-                </Picker>
+              <Picker
+                selectedValue={selectedGender}
+                enabled={false} // Makes the dropdown read-only
+                style={styles.picker}>
+                <Picker.Item label="Select Gender" value="" />
+                <Picker.Item label="Male" value="Male" />
+                <Picker.Item label="Female" value="Female" />
+                <Picker.Item label="Other" value="Other" />
+              </Picker>
             </View>
-        </View>
-        <View style={styles.inputGroup}>
+          </View>
+          <View style={styles.inputGroup}>
             <Text style={styles.label}>Birth Date</Text>
             <TouchableOpacity style={styles.datePickerButton} disabled>
-                <Text style={styles.dateText}>
-                    {birthDate.toLocaleDateString('en-US')}
-                </Text>
+              <Text style={styles.dateText}>
+                {birthDate.toLocaleDateString('en-US')}
+              </Text>
             </TouchableOpacity>
+          </View>
         </View>
-    </View>
 
-    <View style={styles.inputGroup}>
-        <Text style={styles.label}>Address</Text>
-        <TextInput
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Address</Text>
+          <TextInput
             style={styles.inputFull}
             placeholder="Enter address"
             placeholderTextColor="#000"
             value={formData.address}
             editable={false}
-        />
-    </View>
+          />
+        </View>
 
-    <View style={styles.row}>
-        <View style={styles.inputGroup}>
+        <View style={styles.row}>
+          <View style={styles.inputGroup}>
             <Text style={styles.label}>City</Text>
             <TextInput
-                style={styles.input}
-                placeholder="Enter City"
-                placeholderTextColor="#000"
-                value={formData.city}
-                editable={false}
+              style={styles.input}
+              placeholder="Enter City"
+              placeholderTextColor="#000"
+              value={formData.city}
+              editable={false}
             />
-        </View>
-        <View style={styles.inputGroup}>
+          </View>
+          <View style={styles.inputGroup}>
             <Text style={styles.label}>State/Province</Text>
             <TextInput
-                style={styles.input}
-                placeholder="Enter state/province"
-                placeholderTextColor="#000"
-                value={formData.state}
-                editable={false}
+              style={styles.input}
+              placeholder="Enter state/province"
+              placeholderTextColor="#000"
+              value={formData.state}
+              editable={false}
             />
+          </View>
         </View>
-    </View>
 
-    <View style={styles.row}>
-        <View style={styles.inputGroup}>
+        <View style={styles.row}>
+          <View style={styles.inputGroup}>
             <Text style={styles.label}>ZIP/Postal Code</Text>
             <TextInput
-                style={styles.input}
-                placeholder="Enter ZIP code"
-                placeholderTextColor="#000"
-                value={formData.zip}
-                editable={false}
+              style={styles.input}
+              placeholder="Enter ZIP code"
+              placeholderTextColor="#000"
+              value={formData.zip}
+              editable={false}
             />
-        </View>
-        <View style={styles.inputGroup}>
+          </View>
+          <View style={styles.inputGroup}>
             <Text style={styles.label}>Phone Number</Text>
             <TextInput
-                style={styles.input}
-                placeholder="Enter phone number"
-                placeholderTextColor="#000"
-                value={formData.phoneNumber}
-                editable={false}
+              style={styles.input}
+              placeholder="Enter phone number"
+              placeholderTextColor="#000"
+              value={formData.phoneNumber}
+              editable={false}
             />
+          </View>
         </View>
-    </View>
 
-    <View style={styles.inputGroup}>
-        <Text style={styles.label}>Email</Text>
-        <TextInput
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Email</Text>
+          <TextInput
             style={styles.inputFull}
             placeholder="Enter email"
             placeholderTextColor="#000"
             value={formData.email}
             editable={false}
-        />
-    </View>
-
-    <View style={styles.fileUpload}>
-        <View style={styles.inputGroup}>
-            <Text style={styles.label}>Upload (Student ID/Senior Citizen ID/PWD ID)</Text>
-            <View style={styles.fileInputContainer}>
-                <TextInput
-                    style={[styles.inputFull, styles.uploadInput]}
-                    placeholder={selectedFile ? selectedFile.name : 'Choose file'}
-                    editable={false}
-                    placeholderTextColor="#000"
-                />
-                <TouchableOpacity style={styles.browseButton} onPress={handleBrowseFiles}>
-                    <Text style={styles.browseButtonText}>Browse Files</Text>
-                </TouchableOpacity>
-            </View>
+          />
         </View>
-    </View>
-    <TouchableOpacity
-    style={[
-        styles.submitButton,
-        isSubmitting && styles.submitButtonDisabled, // Apply a disabled style if submitting
-    ]}
-    onPress={handleSubmit}
-    disabled={isSubmitting} // Disable button when submitting
->
-    {isSubmitting ? (
-        <Text style={styles.submitButtonText}>Submitting...</Text> // Show loading text
-    ) : (
-        <Text style={styles.submitButtonText}>Submit</Text>
-    )}
-</TouchableOpacity>
 
-</ScrollView>
-
+        <View style={styles.inputGroup}>
+          <Text style={styles.label}>Discount Type</Text>
+          <View style={styles.pickerContainer}>
+            <Picker
+              selectedValue={discountType}
+              onValueChange={itemValue => setDiscountType(itemValue)}
+              style={styles.picker}>
+              <Picker.Item label="Select Discount Type" value="" />
+              <Picker.Item label="Student" value="student" />
+              <Picker.Item label="Senior Citizen" value="senior" />
+              <Picker.Item label="PWD (Person with Disability)" value="pwd" />
+            </Picker>
+          </View>
+        </View>
+        <View style={styles.fileUpload}>
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>
+              Upload (Student ID/Senior Citizen ID/PWD ID)
+            </Text>
+            <View style={styles.fileInputContainer}>
+              <TextInput
+                style={[styles.inputFull, styles.uploadInput]}
+                placeholder={selectedFile ? selectedFile.name : 'Choose file'}
+                editable={false}
+                placeholderTextColor="#000"
+              />
+              <TouchableOpacity
+                style={styles.browseButton}
+                onPress={handleBrowseFiles}>
+                <Text style={styles.browseButtonText}>Browse Files</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+        <TouchableOpacity
+          style={[
+            styles.submitButton,
+            isSubmitting && styles.submitButtonDisabled, // Apply a disabled style if submitting
+          ]}
+          onPress={handleSubmit}
+          disabled={isSubmitting} // Disable button when submitting
+        >
+          {isSubmitting ? (
+            <Text style={styles.submitButtonText}>Submitting...</Text> // Show loading text
+          ) : (
+            <Text style={styles.submitButtonText}>Submit</Text>
+          )}
+        </TouchableOpacity>
+      </ScrollView>
     </View>
   );
 };
@@ -581,20 +675,19 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 20,
     elevation: 5,
   },
- 
+
   headerTitle1: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#000',
-    marginTop:-26,
-    marginLeft:30
+    marginTop: -26,
+    marginLeft: 30,
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#000',
-    marginLeft:10
- 
+    marginLeft: 10,
   },
   scrollContainer: {
     paddingHorizontal: 20,
@@ -699,7 +792,8 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontWeight: 'bold',
     fontSize: 16,
-  },messageContainer: {
+  },
+  messageContainer: {
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
@@ -721,7 +815,8 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontWeight: 'bold',
     fontSize: 16,
-  },  statusCard: {
+  },
+  statusCard: {
     width: '90%',
     padding: 20,
     borderWidth: 2,
@@ -730,26 +825,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: '#FFF8E1',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 4,
-  },  statusTitle: {
+  },
+  statusTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#333',
     marginVertical: 10,
     textAlign: 'center',
-  }, statusDescription: {
+  },
+  statusTitle1: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    color: '#333',
+    marginVertical: 10,
+    textAlign: 'center',
+  },
+  statusDescription: {
     fontSize: 16,
     color: '#666',
     textAlign: 'center',
     marginBottom: 20,
-  }, loadingText: {
+  },
+  loadingText: {
     marginTop: 10,
     fontSize: 16,
     color: '#333',
-  },    container1: {
+  },
+  container1: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',

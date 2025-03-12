@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   StyleSheet,
   View,
@@ -10,18 +10,18 @@ import {
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation } from '@react-navigation/native';
+import {useNavigation} from '@react-navigation/native';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import auth from '@react-native-firebase/auth';
 import database from '@react-native-firebase/database';
-import { FlatList } from 'react-native-gesture-handler';
+import {FlatList} from 'react-native-gesture-handler';
 
 const HomeScreenConductor = () => {
   const navigation = useNavigation();
-  const [username, setUsername] = useState('');  
-  const [walletBalance, setWalletBalance] = useState('0.00');  
-  const [totalPassengers, setTotalPassengers] = useState(0); 
-  const [totalIncome, setTotalIncome] = useState(0.0);  
+  const [username, setUsername] = useState('');
+  const [walletBalance, setWalletBalance] = useState('0.00');
+  const [totalPassengers, setTotalPassengers] = useState(0);
+  const [totalIncome, setTotalIncome] = useState(0.0);
   const [latestTransactions, setLatestTransactions] = useState([]);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
 
@@ -31,110 +31,130 @@ const HomeScreenConductor = () => {
 
   useEffect(() => {
     let userRef, jeepneyStatsRef, transactionsRef, driverRef, notificationRef;
-  
+
     const fetchUserAndStats = async () => {
       try {
         const currentUser = auth().currentUser;
         if (!currentUser) {
-          console.warn("No user is currently logged in.");
+          console.warn('No user is currently logged in.');
           return;
         }
-  
+
         const conductorUid = currentUser.uid;
         userRef = database().ref(`users/accounts/${conductorUid}`);
-  
+
         // ✅ Real-time listener for conductor details & wallet balance
-        userRef.on("value", (snapshot) => {
+        userRef.on('value', snapshot => {
           if (!snapshot.exists()) {
-            console.warn("No user data found.");
+            console.warn('No user data found.');
             return;
           }
-  
+
           const userData = snapshot.val();
-          setUsername(userData.firstName || "User");
-          setWalletBalance(userData.wallet_balance?.toFixed(2) || "0.00"); // ✅ Realtime wallet balance update
-  
+          setUsername(userData.firstName || 'User');
+          setWalletBalance(userData.wallet_balance?.toFixed(2) || '0.00'); // ✅ Realtime wallet balance update
+
           const driverUid = userData.creatorUid;
           if (!driverUid) {
-            console.warn("No linked driver found.");
+            console.warn('No linked driver found.');
             return;
           }
-  
+
           // ✅ Real-time listener for driver details
           driverRef = database().ref(`/users/accounts/${driverUid}`);
-          driverRef.on("value", (driverSnapshot) => {
+          driverRef.on('value', driverSnapshot => {
             if (!driverSnapshot.exists()) {
-              console.warn("Driver account not found.");
+              console.warn('Driver account not found.');
               return;
             }
-  
+
             const driverData = driverSnapshot.val();
             const jeepneyUid = driverData.jeep_assigned;
             if (!jeepneyUid) {
-              console.warn("No jeepney assigned.");
+              console.warn('No jeepney assigned.');
               return;
             }
-  
-            const today = new Date().toISOString().split("T")[0];
-            jeepneyStatsRef = database().ref(`/jeepneys/${jeepneyUid}/dailyStats/${today}`);
-  
+
+            const today = new Date().toISOString().split('T')[0];
+            jeepneyStatsRef = database().ref(
+              `/jeepneys/${jeepneyUid}/dailyStats/${today}`,
+            );
+
             // ✅ Real-time listener for daily income & passengers
-            jeepneyStatsRef.on("value", (statsSnapshot) => {
+            jeepneyStatsRef.on('value', statsSnapshot => {
               if (statsSnapshot.exists()) {
                 const statsData = statsSnapshot.val();
                 setTotalPassengers(statsData.totalPassengers || 0);
-                setTotalIncome(parseFloat(statsData.totalIncome || 0).toFixed(2));
+                setTotalIncome(
+                  parseFloat(statsData.totalIncome || 0).toFixed(2),
+                );
                 setCashIncome(parseFloat(statsData.cashPayment || 0));
                 setCashlessIncome(parseFloat(statsData.cashlessPayment || 0));
               } else {
                 setTotalPassengers(0);
-                setTotalIncome("0.00");
-                setCashIncome("0.00");
-                setCashlessIncome("0.00");
+                setTotalIncome('0.00');
+                setCashIncome('0.00');
+                setCashlessIncome('0.00');
               }
             });
-  
+
             // ✅ Real-time listener for latest 5 transactions
-            transactionsRef = database().ref(`users/accounts/${conductorUid}/transactions`);
-            transactionsRef.on("value", (snapshot) => {
+            transactionsRef = database().ref(
+              `users/accounts/${conductorUid}/transactions`,
+            );
+            transactionsRef.on('value', snapshot => {
               if (!snapshot.exists()) {
                 setLatestTransactions([]);
                 return;
               }
-  
+
               const transactionData = snapshot.val();
-              const transactionList = Object.keys(transactionData).map((key) => ({
+              const transactionList = Object.keys(transactionData).map(key => ({
                 id: key,
                 ...transactionData[key],
               }));
-  
+
               const latestTransactions = transactionList
-                .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+                .sort(
+                  (a, b) =>
+                    new Date(b.createdAt).getTime() -
+                    new Date(a.createdAt).getTime(),
+                )
                 .slice(0, 5);
-  
+
               setLatestTransactions(latestTransactions);
             });
           });
         });
-  
-        // ✅ Real-time listener for unread notifications
-        notificationRef = database().ref(`notification_user/${conductorUid}`);
-        notificationRef.on("value", (snapshot) => {
+
+        const notificationRef = database().ref(`notification_user/${uid}`);
+        notificationRef.on('value', snapshot => {
           if (snapshot.exists()) {
+            const now = new Date().getTime(); // Current timestamp in milliseconds
+            const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000; // 7 days ago
+
             const notifications = Object.values(snapshot.val());
-            const unreadCount = notifications.filter((notif) => notif.status === "unread").length;
+
+            const unreadCount = notifications.filter(notif => {
+              // ✅ Convert ISO date string to timestamp
+              const notifTimestamp = new Date(notif.createdAt).getTime();
+
+              // ✅ Ensure it’s unread and within 7 days
+              return notif.status === 'unread' && notifTimestamp >= oneWeekAgo;
+            }).length;
+
             setUnreadNotifications(unreadCount);
           } else {
             setUnreadNotifications(0);
           }
         });
       } catch (error) {
-        console.error("Error fetching user and stats:", error);
+        console.error('Error fetching user and stats:', error);
       }
     };
-  
+
     fetchUserAndStats();
-  
+
     // ✅ Cleanup: Remove all real-time listeners when component unmounts
     return () => {
       if (userRef) userRef.off();
@@ -144,11 +164,8 @@ const HomeScreenConductor = () => {
       if (notificationRef) notificationRef.off();
     };
   }, []);
-  
-  
-  
-  
-  const formatDate = (timestamp) => {
+
+  const formatDate = timestamp => {
     if (!timestamp) return 'N/A';
     const date = new Date(timestamp);
     return date.toLocaleString('en-US', {
@@ -160,8 +177,7 @@ const HomeScreenConductor = () => {
     });
   };
 
-
-  const renderTransactionCard = (item) => {
+  const renderTransactionCard = item => {
     const amount = parseFloat(item.amount) || 0;
     const distance = parseFloat(item.distance) || 0;
 
@@ -176,30 +192,41 @@ const HomeScreenConductor = () => {
       iconName = 'arrow-down-outline';
       transactionTitle = 'Cash Out';
       color = '#FF6B6B';
-    }else if (item.type === 'transferred') {
-      iconName = 'swap-horizontal-outline'; 
+    } else if (item.type === 'transferred') {
+      iconName = 'swap-horizontal-outline';
       transactionTitle = 'Transferred';
-      color = '#FFC107';  
+      color = '#FFC107';
     }
 
     return (
       <View key={item.id} style={styles.transactionCard}>
         <View style={styles.transactionHeader}>
-          <Ionicons name={iconName} size={32} color={color} style={styles.transactionIcon} />
+          <Ionicons
+            name={iconName}
+            size={32}
+            color={color}
+            style={styles.transactionIcon}
+          />
           <View style={styles.transactionInfo}>
             <Text style={styles.transactionTitle}>{transactionTitle}</Text>
-            <Text style={styles.transactionDate}>{formatDate(item.createdAt)}</Text>
+            <Text style={styles.transactionDate}>
+              {formatDate(item.createdAt)}
+            </Text>
           </View>
         </View>
         <View style={styles.transactionDetails}>
-          <Text style={[styles.transactionAmount, { color }]}>₱{amount.toFixed(2)}</Text>
-          {item.type === 'trip' && <Text style={styles.transactionDistance}>Distance: {distance.toFixed(2)} km</Text>}
+          <Text style={[styles.transactionAmount, {color}]}>
+            ₱{amount.toFixed(2)}
+          </Text>
+          {item.type === 'trip' && (
+            <Text style={styles.transactionDistance}>
+              Distance: {distance.toFixed(2)} km
+            </Text>
+          )}
         </View>
       </View>
     );
   };
-
-
 
   useEffect(() => {
     let userRef, notificationRef;
@@ -216,11 +243,15 @@ const HomeScreenConductor = () => {
 
         // Listener for user details
         userRef = database().ref(`users/accounts/${uid}`);
-        userRef.on('value', (userSnapshot) => {
+        userRef.on('value', userSnapshot => {
           if (userSnapshot.exists()) {
             const userData = userSnapshot.val();
             setUsername(userData.firstName || '');
-            setWalletBalance(userData.wallet_balance ? userData.wallet_balance.toFixed(2) : '0.00');
+            setWalletBalance(
+              userData.wallet_balance
+                ? userData.wallet_balance.toFixed(2)
+                : '0.00',
+            );
           } else {
             console.warn('No user data found.');
           }
@@ -228,10 +259,12 @@ const HomeScreenConductor = () => {
 
         // Listener for unread notifications
         notificationRef = database().ref(`notification_user/${uid}`);
-        notificationRef.on('value', (snapshot) => {
+        notificationRef.on('value', snapshot => {
           if (snapshot.exists()) {
             const notifications = Object.values(snapshot.val());
-            const unreadCount = notifications.filter((notif) => notif.status === 'unread').length;
+            const unreadCount = notifications.filter(
+              notif => notif.status === 'unread',
+            ).length;
             setUnreadNotifications(unreadCount);
           } else {
             setUnreadNotifications(0);
@@ -250,7 +283,6 @@ const HomeScreenConductor = () => {
     };
   }, []);
 
-  
   return (
     <View style={styles.container}>
       {/* Header Section */}
@@ -260,19 +292,26 @@ const HomeScreenConductor = () => {
             Welcome! <Text style={styles.username}>@{username}</Text>
           </Text>
           <TouchableOpacity
-              onPress={() => navigation.navigate('Notifications', { uid: auth().currentUser.uid })}
-            >
-              <View style={styles.notificationIconContainer}>
-                <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
-                {unreadNotifications > 0 && (
-                  <View style={styles.notificationDot}>
-                    <Text style={styles.notificationCount}>
-                      {unreadNotifications > 9 ? '9+' : unreadNotifications}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </TouchableOpacity>
+            onPress={() =>
+              navigation.navigate('Notifications', {
+                uid: auth().currentUser.uid,
+              })
+            }>
+            <View style={styles.notificationIconContainer}>
+              <Ionicons
+                name="notifications-outline"
+                size={24}
+                color="#FFFFFF"
+              />
+              {unreadNotifications > 0 && (
+                <View style={styles.notificationDot}>
+                  <Text style={styles.notificationCount}>
+                    {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
         </View>
         <View style={styles.walletSection}>
           <View style={styles.walletInfo}>
@@ -283,10 +322,12 @@ const HomeScreenConductor = () => {
             source={require('../assets/images/wallet-icon.png')}
             style={styles.walletIcon}
           />
-           {/* <TouchableOpacity style={styles.cashInButton} onPress={() => navigation.navigate('CashIn')}>
+          {/* <TouchableOpacity style={styles.cashInButton} onPress={() => navigation.navigate('CashIn')}>
             <Text style={styles.cashInText}>Cash In</Text>
           </TouchableOpacity> */}
-          <TouchableOpacity style={styles.cashInButton1} onPress={() => navigation.navigate('Transfer')}>
+          <TouchableOpacity
+            style={styles.cashInButton1}
+            onPress={() => navigation.navigate('Transfer')}>
             <Text style={styles.cashInText}>Transfer</Text>
           </TouchableOpacity>
         </View>
@@ -301,67 +342,70 @@ const HomeScreenConductor = () => {
             style={styles.lineImage}
           />
         </View>
-        
+
         <View>
-  {/* Toggle Button */}
-     <MaterialCommunityIcons  style={styles.toggleButton}
-         onPress={() => setIsCashPayment(prev => !prev)} 
-         name="swap-horizontal-circle" size={30} color="#466B66" />
-     
+          {/* Toggle Button */}
+          <MaterialCommunityIcons
+            style={styles.toggleButton}
+            onPress={() => setIsCashPayment(prev => !prev)}
+            name="swap-horizontal-circle"
+            size={30}
+            color="#466B66"
+          />
 
-  {/* Dashboard Section */}
-  {isCashPayment ? (
-    // Cash Payment View
-    <View style={styles.dashboard}>
-      {/* Fare Rate Card */}
-      <ImageBackground
-        source={require('../assets/images/card-gradient.png')}
-        style={styles.card}
-        imageStyle={styles.cardImageBackground}
-      >
-        <MaterialCommunityIcons name="account-group" size={40} color="#FFFFFF" />
-        <Text style={styles.cardValue}>{totalPassengers}</Text>
-        <Text style={styles.cardLabel}>Total Passenger</Text>
-      </ImageBackground>
+          {/* Dashboard Section */}
+          {isCashPayment ? (
+            // Cash Payment View
+            <View style={styles.dashboard}>
+              {/* Fare Rate Card */}
+              <ImageBackground
+                source={require('../assets/images/card-gradient.png')}
+                style={styles.card}
+                imageStyle={styles.cardImageBackground}>
+                <MaterialCommunityIcons
+                  name="account-group"
+                  size={40}
+                  color="#FFFFFF"
+                />
+                <Text style={styles.cardValue}>{totalPassengers}</Text>
+                <Text style={styles.cardLabel}>Total Passenger</Text>
+              </ImageBackground>
 
-      {/* Total Income Card */}
-      <ImageBackground
-        source={require('../assets/images/card-gradient.png')}
-        style={styles.card}
-        imageStyle={styles.cardImageBackground}
-      >
-        <FontAwesome5 name="coins" size={40} color="#FFFFFF" />
-        <Text style={styles.cardValue}>₱{totalIncome}</Text>
-        <Text style={styles.cardLabel}>Total Income</Text>
-      </ImageBackground>
-    </View>
-  ) : (
-    // Cashless Payment View
-    <View style={styles.dashboard}>
-      {/* Fare Rate Card */}
-      <ImageBackground
-        source={require('../assets/images/card-gradient.png')}
-        style={styles.card}
-        imageStyle={styles.cardImageBackground}
-      >
-        <MaterialCommunityIcons name="cash" size={40} color="#FFFFFF" />
-        <Text style={styles.cardValue}>{cashlessPayment}</Text>
-        <Text style={styles.cardLabel}>Total Cashless</Text>
-      </ImageBackground>
+              {/* Total Income Card */}
+              <ImageBackground
+                source={require('../assets/images/card-gradient.png')}
+                style={styles.card}
+                imageStyle={styles.cardImageBackground}>
+                <FontAwesome5 name="coins" size={40} color="#FFFFFF" />
+                <Text style={styles.cardValue}>₱{totalIncome}</Text>
+                <Text style={styles.cardLabel}>Total Income</Text>
+              </ImageBackground>
+            </View>
+          ) : (
+            // Cashless Payment View
+            <View style={styles.dashboard}>
+              {/* Fare Rate Card */}
+              <ImageBackground
+                source={require('../assets/images/card-gradient.png')}
+                style={styles.card}
+                imageStyle={styles.cardImageBackground}>
+                <MaterialCommunityIcons name="cash" size={40} color="#FFFFFF" />
+                <Text style={styles.cardValue}>{cashlessPayment}</Text>
+                <Text style={styles.cardLabel}>Total Cashless</Text>
+              </ImageBackground>
 
-      {/* Total Income Card */}
-      <ImageBackground
-        source={require('../assets/images/card-gradient.png')}
-        style={styles.card}
-        imageStyle={styles.cardImageBackground}
-      >
-        <FontAwesome5 name="coins" size={40} color="#FFFFFF" />
-        <Text style={styles.cardValue}>₱{cashPayment}</Text>
-        <Text style={styles.cardLabel}>Total Cash</Text>
-      </ImageBackground>
-    </View>
-  )}
-</View>
+              {/* Total Income Card */}
+              <ImageBackground
+                source={require('../assets/images/card-gradient.png')}
+                style={styles.card}
+                imageStyle={styles.cardImageBackground}>
+                <FontAwesome5 name="coins" size={40} color="#FFFFFF" />
+                <Text style={styles.cardValue}>₱{cashPayment}</Text>
+                <Text style={styles.cardLabel}>Total Cash</Text>
+              </ImageBackground>
+            </View>
+          )}
+        </View>
 
         {/* Transactions Section */}
         <View style={styles.sectionHeader}>
@@ -369,20 +413,21 @@ const HomeScreenConductor = () => {
         </View>
 
         <View style={styles.transactionList}>
-  {latestTransactions.length > 0 ? (
-    <FlatList
-      data={latestTransactions}
-      keyExtractor={(item) => item.id}
-      renderItem={({ item }) => renderTransactionCard(item)}
-      style={{ maxHeight: 190 }} // Controls the scroll height inside the dashboard
-      showsVerticalScrollIndicator={false}
-      nestedScrollEnabled={true} // Fixes scroll inside ScrollView
-    />
-  ) : (
-    <Text style={styles.noTransactionsText}>No recent transactions available.</Text>
-  )}
-</View>
-
+          {latestTransactions.length > 0 ? (
+            <FlatList
+              data={latestTransactions}
+              keyExtractor={item => item.id}
+              renderItem={({item}) => renderTransactionCard(item)}
+              style={{maxHeight: 190}} // Controls the scroll height inside the dashboard
+              showsVerticalScrollIndicator={false}
+              nestedScrollEnabled={true} // Fixes scroll inside ScrollView
+            />
+          ) : (
+            <Text style={styles.noTransactionsText}>
+              No recent transactions available.
+            </Text>
+          )}
+        </View>
       </ScrollView>
     </View>
   );
@@ -390,20 +435,17 @@ const HomeScreenConductor = () => {
 
 const styles = StyleSheet.create({
   toggleButton: {
-    
- 
-   marginRight:-40,
+    marginRight: -40,
     marginTop: -50,
     width: '20%', // Matches card width
-   alignSelf: 'flex-end'
+    alignSelf: 'flex-end',
   },
   toggleButtonText: {
- 
     color: '#466B66',
     fontSize: 16,
     fontWeight: 'bold',
   },
-  
+
   container: {
     flex: 1,
     backgroundColor: '#F4F4F4',
@@ -458,12 +500,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 8,
   },
-   cashInButton1: {
+  cashInButton1: {
     backgroundColor: '#CCD9B8',
     borderRadius: 20,
     paddingHorizontal: 15,
     paddingVertical: 8,
-    marginLeft:5,
+    marginLeft: 5,
   },
   cashInText: {
     fontSize: 14,
@@ -495,7 +537,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginBottom: 20,
-    
   },
   card: {
     borderRadius: 15,
@@ -546,13 +587,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#FFFFFF',
     marginTop: 5,
-  },transactionCard: {
+  },
+  transactionCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 8,
     marginBottom: 5,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
@@ -594,7 +636,8 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#999',
     marginTop: 10,
-  },  notificationIconContainer: {
+  },
+  notificationIconContainer: {
     position: 'relative',
   },
   notificationDot: {
@@ -613,7 +656,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   },
- 
 });
 
 export default HomeScreenConductor;

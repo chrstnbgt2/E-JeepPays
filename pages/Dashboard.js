@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   StyleSheet,
   View,
@@ -7,11 +7,11 @@ import {
   Image,
   ScrollView,
   ImageBackground,
-  FlatList 
+  FlatList,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import MaterialCommunityIcons from 'react-native-vector-icons/MaterialCommunityIcons';
-import { useNavigation } from '@react-navigation/native';
+import {useNavigation} from '@react-navigation/native';
 import auth from '@react-native-firebase/auth';
 import database from '@react-native-firebase/database';
 
@@ -21,8 +21,8 @@ const HomeScreen = () => {
   const [fareRate, setFareRate] = useState('0.00');
   const [walletBalance, setWalletBalance] = useState('0.00');
   const [accType, setAccType] = useState('Regular');
-  const [latestTrip, setLatestTrip] = useState(null);  
-  const [transactions, setTransactions] = useState([]); 
+  const [latestTrip, setLatestTrip] = useState(null);
+  const [transactions, setTransactions] = useState([]);
   const [totalDistance, setTotalDistance] = useState(0);
 
   useEffect(() => {
@@ -32,25 +32,29 @@ const HomeScreen = () => {
       try {
         const currentUser = auth().currentUser;
         if (!currentUser) {
-          console.warn("No user is currently logged in.");
+          console.warn('No user is currently logged in.');
           return;
         }
 
         const uid = currentUser.uid;
         userRef = database().ref(`users/accounts/${uid}`);
 
-        userRef.on("value", (userSnapshot) => {
+        userRef.on('value', userSnapshot => {
           if (userSnapshot.exists()) {
             const userData = userSnapshot.val();
-            setUsername(userData.firstName || "");
+            setUsername(userData.firstName || '');
             setWalletBalance(
-              userData.wallet_balance ? userData.wallet_balance.toFixed(2) : "0.00"
+              userData.wallet_balance
+                ? userData.wallet_balance.toFixed(2)
+                : '0.00',
             );
-            const userAccountType = userData.acc_type || "Regular";
+            const userAccountType = userData.acc_type || 'Regular';
             setAccType(userAccountType);
 
-            fareRef = database().ref(`fares/${userAccountType.toLowerCase()}/firstKm`);
-            fareRef.on("value", (fareSnapshot) => {
+            fareRef = database().ref(
+              `fares/${userAccountType.toLowerCase()}/firstKm`,
+            );
+            fareRef.on('value', fareSnapshot => {
               if (fareSnapshot.exists()) {
                 setFareRate(fareSnapshot.val().toFixed(2));
               }
@@ -60,10 +64,10 @@ const HomeScreen = () => {
 
         // Fetch latest 5 transactions
         transactionsRef = database().ref(`users/accounts/${uid}/transactions`);
-        transactionsRef.on("value", (snapshot) => {
+        transactionsRef.on('value', snapshot => {
           if (snapshot.exists()) {
             const transactionData = snapshot.val();
-            const transactionList = Object.keys(transactionData).map((key) => ({
+            const transactionList = Object.keys(transactionData).map(key => ({
               id: key,
               ...transactionData[key],
             }));
@@ -76,7 +80,7 @@ const HomeScreen = () => {
 
             // Calculate total distance
             const totalDistanceSum = transactionList
-              .filter((transaction) => transaction.type === "trip")
+              .filter(transaction => transaction.type === 'trip')
               .reduce((sum, trip) => sum + (trip.distance || 0), 0);
 
             setTotalDistance(totalDistanceSum.toFixed(2));
@@ -86,33 +90,65 @@ const HomeScreen = () => {
           }
         });
 
-        // Unread notifications
-        notificationRef = database().ref(`notification_user/${uid}`);
-        notificationRef.on("value", (snapshot) => {
+        const notificationRef = database().ref(`notification_user/${uid}`);
+        notificationRef.on('value', snapshot => {
           if (snapshot.exists()) {
+            const now = new Date().getTime(); // Current timestamp in milliseconds
+            const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000; // 7 days ago
+
             const notifications = Object.values(snapshot.val());
-            const unreadCount = notifications.filter((notif) => notif.status === "unread").length;
+
+            const unreadCount = notifications.filter(notif => {
+              // ✅ Convert ISO date string to timestamp
+              const notifTimestamp = new Date(notif.createdAt).getTime();
+
+              // ✅ Ensure it’s unread and within 7 days
+              return notif.status === 'unread' && notifTimestamp >= oneWeekAgo;
+            }).length;
+
             setUnreadNotifications(unreadCount);
           } else {
             setUnreadNotifications(0);
           }
         });
       } catch (error) {
-        console.error("Error fetching data:", error);
+        const notificationRef = database().ref(`notification_user/${uid}`);
+        notificationRef.on('value', snapshot => {
+          if (snapshot.exists()) {
+            const now = new Date().getTime(); // Current timestamp in milliseconds
+            const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000; // 7 days ago
+
+            const notifications = Object.values(snapshot.val());
+
+            const unreadCount = notifications.filter(notif => {
+              // ✅ Convert ISO date string to timestamp
+              const notifTimestamp = new Date(notif.createdAt).getTime();
+
+              // ✅ Ensure it’s unread and within 7 days
+              return notif.status === 'unread' && notifTimestamp >= oneWeekAgo;
+            }).length;
+
+            setUnreadNotifications(unreadCount);
+          } else {
+            setUnreadNotifications(0);
+          }
+        });
+
+        console.error('Error fetching data:', error);
       }
     };
 
     fetchData();
 
     return () => {
-      if (userRef) userRef.off("value");
-      if (fareRef) fareRef.off("value");
-      if (transactionsRef) transactionsRef.off("value");
-      if (notificationRef) notificationRef.off("value");
+      if (userRef) userRef.off('value');
+      if (fareRef) fareRef.off('value');
+      if (transactionsRef) transactionsRef.off('value');
+      if (notificationRef) notificationRef.off('value');
     };
   }, []);
-  
-  const formatDate = (timestamp) => {
+
+  const formatDate = timestamp => {
     if (!timestamp) return 'N/A';
     const date = new Date(timestamp);
     return date.toLocaleString('en-US', {
@@ -123,7 +159,6 @@ const HomeScreen = () => {
       minute: '2-digit',
     });
   };
-
 
   const [unreadNotifications, setUnreadNotifications] = useState(0);
 
@@ -142,11 +177,15 @@ const HomeScreen = () => {
 
         // Listener for user details
         userRef = database().ref(`users/accounts/${uid}`);
-        userRef.on('value', (userSnapshot) => {
+        userRef.on('value', userSnapshot => {
           if (userSnapshot.exists()) {
             const userData = userSnapshot.val();
             setUsername(userData.firstName || '');
-            setWalletBalance(userData.wallet_balance ? userData.wallet_balance.toFixed(2) : '0.00');
+            setWalletBalance(
+              userData.wallet_balance
+                ? userData.wallet_balance.toFixed(2)
+                : '0.00',
+            );
           } else {
             console.warn('No user data found.');
           }
@@ -154,10 +193,12 @@ const HomeScreen = () => {
 
         // Listener for unread notifications
         notificationRef = database().ref(`notification_user/${uid}`);
-        notificationRef.on('value', (snapshot) => {
+        notificationRef.on('value', snapshot => {
           if (snapshot.exists()) {
             const notifications = Object.values(snapshot.val());
-            const unreadCount = notifications.filter((notif) => notif.status === 'unread').length;
+            const unreadCount = notifications.filter(
+              notif => notif.status === 'unread',
+            ).length;
             setUnreadNotifications(unreadCount);
           } else {
             setUnreadNotifications(0);
@@ -175,7 +216,7 @@ const HomeScreen = () => {
       if (notificationRef) notificationRef.off('value');
     };
   }, []);
-  
+
   return (
     <View style={styles.container}>
       <View style={styles.header}>
@@ -183,21 +224,27 @@ const HomeScreen = () => {
           <Text style={styles.welcomeText}>
             Welcome! <Text style={styles.username}>@{username}</Text>
           </Text>
-                      <TouchableOpacity
-              onPress={() => navigation.navigate('Notifications', { uid: auth().currentUser.uid })}
-            >
-              <View style={styles.notificationIconContainer}>
-                <Ionicons name="notifications-outline" size={24} color="#FFFFFF" />
-                {unreadNotifications > 0 && (
-                  <View style={styles.notificationDot}>
-                    <Text style={styles.notificationCount}>
-                      {unreadNotifications > 9 ? '9+' : unreadNotifications}
-                    </Text>
-                  </View>
-                )}
-              </View>
-            </TouchableOpacity>
-
+          <TouchableOpacity
+            onPress={() =>
+              navigation.navigate('Notifications', {
+                uid: auth().currentUser.uid,
+              })
+            }>
+            <View style={styles.notificationIconContainer}>
+              <Ionicons
+                name="notifications-outline"
+                size={24}
+                color="#FFFFFF"
+              />
+              {unreadNotifications > 0 && (
+                <View style={styles.notificationDot}>
+                  <Text style={styles.notificationCount}>
+                    {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </TouchableOpacity>
         </View>
         <View style={styles.walletSection}>
           <View style={styles.walletInfo}>
@@ -210,8 +257,7 @@ const HomeScreen = () => {
           />
           <TouchableOpacity
             style={styles.cashInButton}
-            onPress={() => navigation.navigate('CashIn')}
-          >
+            onPress={() => navigation.navigate('CashIn')}>
             <Text style={styles.cashInText}>Cash In</Text>
           </TouchableOpacity>
         </View>
@@ -229,8 +275,7 @@ const HomeScreen = () => {
           <ImageBackground
             source={require('../assets/images/card-gradient.png')}
             style={styles.card}
-            imageStyle={styles.cardImageBackground}
-          >
+            imageStyle={styles.cardImageBackground}>
             <Ionicons name="cash-outline" size={40} color="#FFFFFF" />
             <Text style={styles.cardValue}>₱{fareRate}</Text>
             <Text style={styles.cardLabel}>{accType} Fare Rate</Text>
@@ -239,9 +284,12 @@ const HomeScreen = () => {
           <ImageBackground
             source={require('../assets/images/card-gradient.png')}
             style={styles.card}
-            imageStyle={styles.cardImageBackground}
-          >
-             <MaterialCommunityIcons name="road-variant" size={40} color="#FFFFFF" />
+            imageStyle={styles.cardImageBackground}>
+            <MaterialCommunityIcons
+              name="road-variant"
+              size={40}
+              color="#FFFFFF"
+            />
             <Text style={styles.cardValue}>{totalDistance} kms</Text>
             <Text style={styles.cardLabel}>Total Distance Travelled</Text>
           </ImageBackground>
@@ -256,41 +304,63 @@ const HomeScreen = () => {
         </View>
 
         <View style={styles.transactionList}>
-  {transactions.length > 0 ? (
-  <FlatList
-  data={transactions}
-  keyExtractor={(item, index) => item.id || index.toString()}
-  renderItem={({ item }) => (
-    <View style={styles.transactionCard}>
-      <View style={styles.transactionRow}>
-        {item.type === 'trip' ? (
-          <MaterialCommunityIcons name="map-marker-path" size={32} color="#466B66" style={styles.transactionIcon} />
-        ) : item.type === 'cash_in' ? (
-          <Ionicons name="cash-outline" size={32} color="#8FCB81" style={styles.transactionIcon} />
-        ) : (
-          <Ionicons name="help-circle-outline" size={32} color="#888" style={styles.transactionIcon} />
-        )}
-        <View style={styles.transactionDetails}>
-          <Text style={styles.transactionText}>
-            {item.type === 'trip' ? 'Trip Payment:' : item.type === 'cash_in' ? 'Cash-In:' : 'Other Transaction:'}{' '}
-            <Text style={styles.transactionAmount}>₱{(item.amount || 0).toFixed(2)}</Text>
-          </Text>
-          <Text style={styles.transactionDate}>{new Date(item.createdAt).toLocaleString()}</Text>
+          {transactions.length > 0 ? (
+            <FlatList
+              data={transactions}
+              keyExtractor={(item, index) => item.id || index.toString()}
+              renderItem={({item}) => (
+                <View style={styles.transactionCard}>
+                  <View style={styles.transactionRow}>
+                    {item.type === 'trip' ? (
+                      <MaterialCommunityIcons
+                        name="map-marker-path"
+                        size={32}
+                        color="#466B66"
+                        style={styles.transactionIcon}
+                      />
+                    ) : item.type === 'cash_in' ? (
+                      <Ionicons
+                        name="cash-outline"
+                        size={32}
+                        color="#8FCB81"
+                        style={styles.transactionIcon}
+                      />
+                    ) : (
+                      <Ionicons
+                        name="help-circle-outline"
+                        size={32}
+                        color="#888"
+                        style={styles.transactionIcon}
+                      />
+                    )}
+                    <View style={styles.transactionDetails}>
+                      <Text style={styles.transactionText}>
+                        {item.type === 'trip'
+                          ? 'Trip Payment:'
+                          : item.type === 'cash_in'
+                          ? 'Cash-In:'
+                          : 'Other Transaction:'}{' '}
+                        <Text style={styles.transactionAmount}>
+                          ₱{(item.amount || 0).toFixed(2)}
+                        </Text>
+                      </Text>
+                      <Text style={styles.transactionDate}>
+                        {new Date(item.createdAt).toLocaleString()}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+              style={{maxHeight: 165}} // Limit height for proper scrolling
+              showsVerticalScrollIndicator={false}
+              nestedScrollEnabled={true} // Enable nested scrolling to avoid errors
+            />
+          ) : (
+            <Text style={styles.noTransactionsText}>
+              No recent transactions.
+            </Text>
+          )}
         </View>
-      </View>
-    </View>
-  )}
-  style={{ maxHeight: 165 }} // Limit height for proper scrolling
-  showsVerticalScrollIndicator={false} 
-  nestedScrollEnabled={true} // Enable nested scrolling to avoid errors
-/>
-
-  ) : (
-    <Text style={styles.noTransactionsText}>No recent transactions.</Text>
-  )}
-</View>
-
-        
       </ScrollView>
     </View>
   );
@@ -414,14 +484,14 @@ const styles = StyleSheet.create({
     height: 50,
     marginBottom: 10,
     elevation: 2,
-  }, 
+  },
   transactionCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: {width: 0, height: 2},
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,

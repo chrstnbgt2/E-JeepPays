@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, {useEffect, useState} from 'react';
 import {
   StyleSheet,
   View,
@@ -12,7 +12,7 @@ import Ionicons from 'react-native-vector-icons/Ionicons';
 import database from '@react-native-firebase/database';
 import auth from '@react-native-firebase/auth';
 
-const TransferScreen = ({ navigation }) => {
+const TransferScreen = ({navigation}) => {
   const [driverName, setDriverName] = useState('');
   const [driverUid, setDriverUid] = useState('');
   const [conductorBalance, setConductorBalance] = useState(0); // Current balance
@@ -24,7 +24,7 @@ const TransferScreen = ({ navigation }) => {
       try {
         const currentUser = auth().currentUser;
         if (!currentUser) {
-          Alert.alert('Error', 'You must be logged in to transfer balance.');
+          Alert.alert('Warning', 'You must be logged in to transfer balance.');
           return;
         }
 
@@ -34,17 +34,23 @@ const TransferScreen = ({ navigation }) => {
 
         if (conductorSnapshot.exists()) {
           const conductorData = conductorSnapshot.val();
-          setConductorBalance(conductorData.wallet_balance?.toFixed(2) || '0.00'); // Store balance
+          setConductorBalance(
+            conductorData.wallet_balance?.toFixed(2) || '0.00',
+          ); // Store balance
           const linkedDriverUid = conductorData.creatorUid; // Get creatorUid (driver UID)
           setDriverUid(linkedDriverUid);
 
           if (linkedDriverUid) {
-            const driverRef = database().ref(`users/accounts/${linkedDriverUid}`);
+            const driverRef = database().ref(
+              `users/accounts/${linkedDriverUid}`,
+            );
             const driverSnapshot = await driverRef.once('value');
 
             if (driverSnapshot.exists()) {
               const driverData = driverSnapshot.val();
-              const fullName = `${driverData.firstName || ''} ${driverData.lastName || ''}`.trim();
+              const fullName = `${driverData.firstName || ''} ${
+                driverData.lastName || ''
+              }`.trim();
               setDriverName(fullName || 'Unknown Driver');
             } else {
               setDriverName('Driver not found.');
@@ -53,7 +59,7 @@ const TransferScreen = ({ navigation }) => {
         }
       } catch (error) {
         console.error('Error fetching driver info:', error);
-        Alert.alert('Error', 'Failed to fetch driver information.');
+        Alert.alert('Warning', 'Failed to fetch driver information.');
       }
     };
 
@@ -62,18 +68,18 @@ const TransferScreen = ({ navigation }) => {
 
   const handleTransfer = async () => {
     if (!driverUid || !driverName) {
-      Alert.alert('Error', 'Driver information not available.');
+      Alert.alert('Warning', 'Driver information not available.');
       return;
     }
 
     if (!amount) {
-      Alert.alert('Error', 'Please enter an amount.');
+      Alert.alert('Warning', 'Please enter an amount.');
       return;
     }
 
     const transferAmount = parseFloat(amount);
     if (isNaN(transferAmount) || transferAmount <= 0) {
-      Alert.alert('Error', 'Please enter a valid amount.');
+      Alert.alert('Warning', 'Please enter a valid amount.');
       return;
     }
 
@@ -81,7 +87,7 @@ const TransferScreen = ({ navigation }) => {
       setLoading(true);
       const currentUser = auth().currentUser;
       if (!currentUser) {
-        Alert.alert('Error', 'You must be logged in to transfer balance.');
+        Alert.alert('Warning', 'You must be logged in to transfer balance.');
         setLoading(false);
         return;
       }
@@ -91,14 +97,14 @@ const TransferScreen = ({ navigation }) => {
       const conductorSnapshot = await conductorRef.once('value');
 
       if (!conductorSnapshot.exists()) {
-        Alert.alert('Error', 'Conductor account not found.');
+        Alert.alert('Warning', 'Conductor account not found.');
         setLoading(false);
         return;
       }
 
       const conductorData = conductorSnapshot.val();
       if (conductorData.wallet_balance < transferAmount) {
-        Alert.alert('Error', 'Insufficient balance.');
+        Alert.alert('Warning', 'Insufficient balance.');
         setLoading(false);
         return;
       }
@@ -107,22 +113,27 @@ const TransferScreen = ({ navigation }) => {
       const driverSnapshot = await driverRef.once('value');
 
       if (!driverSnapshot.exists()) {
-        Alert.alert('Error', 'Driver account not found.');
+        Alert.alert('Warning', 'Driver account not found.');
         setLoading(false);
         return;
       }
 
       const driverData = driverSnapshot.val();
       const newConductorBalance = conductorData.wallet_balance - transferAmount;
-      const newDriverBalance = (driverData.wallet_balance || 0) + transferAmount;
+      const newDriverBalance =
+        (driverData.wallet_balance || 0) + transferAmount;
 
       // Update balances
-      await conductorRef.update({ wallet_balance: newConductorBalance });
-      await driverRef.update({ wallet_balance: newDriverBalance });
+      await conductorRef.update({wallet_balance: newConductorBalance});
+      await driverRef.update({wallet_balance: newDriverBalance});
 
       // Record transactions
-      const conductorTransactionRef = database().ref(`users/accounts/${conductorUid}/transactions`);
-      const driverTransactionRef = database().ref(`users/accounts/${driverUid}/transactions`);
+      const conductorTransactionRef = database().ref(
+        `users/accounts/${conductorUid}/transactions`,
+      );
+      const driverTransactionRef = database().ref(
+        `users/accounts/${driverUid}/transactions`,
+      );
 
       const timestamp = new Date().toISOString();
 
@@ -141,7 +152,9 @@ const TransferScreen = ({ navigation }) => {
         amount: transferAmount,
         status: 'completed',
         createdAt: timestamp,
-        sender: `${conductorData.firstName || ''} ${conductorData.lastName || ''}`.trim(),
+        sender: `${conductorData.firstName || ''} ${
+          conductorData.lastName || ''
+        }`.trim(),
       });
 
       const transactionData1 = {
@@ -152,8 +165,10 @@ const TransferScreen = ({ navigation }) => {
         type: 'transferred',
         message: `Transfer Payment with an amount of ₱${transferAmount}`,
       };
-      
-      await database().ref(`/notification_user/${conductorUid}`).push(transactionData1);
+
+      await database()
+        .ref(`/notification_user/${conductorUid}`)
+        .push(transactionData1);
 
       const transactionData2 = {
         driverUid,
@@ -163,17 +178,20 @@ const TransferScreen = ({ navigation }) => {
         type: 'transferred',
         message: `Transfer Received with an amount of ₱${transferAmount}`,
       };
-      
-      await database().ref(`/notification_user/${driverUid}`).push(transactionData2);
-      
 
+      await database()
+        .ref(`/notification_user/${driverUid}`)
+        .push(transactionData2);
 
-      Alert.alert('Success', `₱${transferAmount.toFixed(2)} has been transferred to ${driverName}.`);
+      Alert.alert(
+        'Success',
+        `₱${transferAmount.toFixed(2)} has been transferred to ${driverName}.`,
+      );
       setAmount('');
       setConductorBalance(newConductorBalance.toFixed(2)); // Update balance displayed
     } catch (error) {
       console.error('Error during transfer:', error);
-      Alert.alert('Error', 'Transfer failed. Please try again.');
+      Alert.alert('Warning', 'Transfer failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -182,7 +200,12 @@ const TransferScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Ionicons name="arrow-back" size={24} color="#000" onPress={() => navigation.goBack()} />
+        <Ionicons
+          name="arrow-back"
+          size={24}
+          color="#000"
+          onPress={() => navigation.goBack()}
+        />
         <Text style={styles.headerTitle}>Transfer Balance</Text>
       </View>
 
@@ -198,15 +221,18 @@ const TransferScreen = ({ navigation }) => {
           placeholder="Amount (₱)"
           placeholderTextColor="#777"
           value={amount}
-          onChangeText={(text) => setAmount(text)}
+          onChangeText={text => setAmount(text)}
           keyboardType="numeric"
         />
         <TouchableOpacity
-          style={[styles.button, loading && { backgroundColor: '#9DC8B3' }]}
+          style={[styles.button, loading && {backgroundColor: '#9DC8B3'}]}
           onPress={handleTransfer}
-          disabled={loading}
-        >
-          {loading ? <ActivityIndicator size="small" color="#FFF" /> : <Text style={styles.buttonText}>Transfer</Text>}
+          disabled={loading}>
+          {loading ? (
+            <ActivityIndicator size="small" color="#FFF" />
+          ) : (
+            <Text style={styles.buttonText}>Transfer</Text>
+          )}
         </TouchableOpacity>
       </View>
     </View>

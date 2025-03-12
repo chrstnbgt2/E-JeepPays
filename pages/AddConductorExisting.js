@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, {useState, useEffect} from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   Alert,
 } from 'react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import { useNavigation } from '@react-navigation/native';
+import {useNavigation} from '@react-navigation/native';
 import auth from '@react-native-firebase/auth';
 import database from '@react-native-firebase/database';
 
@@ -23,7 +23,7 @@ const AddConductorExisting = () => {
 
   useEffect(() => {
     if (!currentUser) {
-      Alert.alert('Error', 'You must be logged in.');
+      Alert.alert('Warning', 'You must be logged in.');
       return;
     }
 
@@ -31,10 +31,10 @@ const AddConductorExisting = () => {
       try {
         const usersRef = database().ref('users/accounts');
 
-        usersRef.on('value', (snapshot) => {
+        usersRef.on('value', snapshot => {
           const users = [];
-          snapshot.forEach((childSnapshot) => {
-            const user = { id: childSnapshot.key, ...childSnapshot.val() };
+          snapshot.forEach(childSnapshot => {
+            const user = {id: childSnapshot.key, ...childSnapshot.val()};
 
             // ✅ Fetch users where `role` is `conductor` and `creatorUid` is "unassigned"
             if (user.role === 'conductor' && user.creatorUid === 'unassigned') {
@@ -57,10 +57,10 @@ const AddConductorExisting = () => {
     fetchUsers();
   }, []);
 
-  const assignAsConductor = async (userId) => {
+  const assignAsConductor = async userId => {
     const currentUser = auth().currentUser;
     if (!currentUser) {
-      Alert.alert('Error', 'No logged-in user found.');
+      Alert.alert('Warning', 'No logged-in user found.');
       return;
     }
 
@@ -68,49 +68,56 @@ const AddConductorExisting = () => {
       await database().ref(`users/accounts/${userId}`).update({
         creatorUid: currentUser.uid,
         role: 'conductor',
-        status:'Inactive'
+        status: 'Inactive',
       });
 
       Alert.alert('Success', 'User has been assigned as a conductor.');
     } catch (error) {
       console.error('Error assigning conductor:', error);
-      Alert.alert('Error', 'Failed to assign user as a conductor.');
+      Alert.alert('Warning', 'Failed to assign user as a conductor.');
     }
   };
 
-  const handleSearch = (text) => {
+  const handleSearch = text => {
     setSearchQuery(text);
 
     if (text === '') {
       setFilteredUsers(usersList); // Reset when empty
     } else {
-      const filtered = usersList.filter((user) =>
-        (`${user.firstName} ${user.lastName}`).toLowerCase().includes(text.toLowerCase())
+      const filtered = usersList.filter(user =>
+        `${user.firstName} ${user.lastName}`
+          .toLowerCase()
+          .includes(text.toLowerCase()),
       );
       setFilteredUsers(filtered);
     }
   };
 
-  const renderItem = ({ item }) => (
+  const renderItem = ({item}) => (
     <View style={styles.accountCard}>
       <View style={styles.accountInfo}>
         <View style={styles.statusDot} />
         <View>
-          <Text style={styles.accountName}>{`${item.firstName} ${item.lastName}`}</Text>
-          <Text style={styles.accountDetails}>📧 {item.email || 'No Email'}</Text>
-          <Text style={styles.accountDetails}>📞 {item.phoneNumber || 'No Phone'}</Text>
+          <Text
+            style={
+              styles.accountName
+            }>{`${item.firstName} ${item.lastName}`}</Text>
+          <Text style={styles.accountDetails}>
+            📧 {item.email || 'No Email'}
+          </Text>
+          <Text style={styles.accountDetails}>
+            📞 {item.phoneNumber || 'No Phone'}
+          </Text>
         </View>
       </View>
       <TouchableOpacity
         style={styles.assignButton}
-        onPress={() => assignAsConductor(item.id)}
-      >
+        onPress={() => assignAsConductor(item.id)}>
         <Ionicons name="person-add" size={20} color="#FFF" />
         <Text style={styles.assignButtonText}>Assign</Text>
       </TouchableOpacity>
     </View>
   );
-  
 
   return (
     <View style={styles.container}>
@@ -128,7 +135,12 @@ const AddConductorExisting = () => {
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#888" style={styles.searchIcon} />
+          <Ionicons
+            name="search"
+            size={20}
+            color="#888"
+            style={styles.searchIcon}
+          />
           <TextInput
             style={styles.searchInput}
             placeholder="Search by name..."
@@ -144,7 +156,7 @@ const AddConductorExisting = () => {
         ) : (
           <FlatList
             data={filteredUsers}
-            keyExtractor={(item) => item.id}
+            keyExtractor={item => item.id}
             renderItem={renderItem}
             contentContainerStyle={styles.list}
           />
@@ -153,7 +165,6 @@ const AddConductorExisting = () => {
     </View>
   );
 };
-
 
 const styles = StyleSheet.create({
   container: {
@@ -237,7 +248,8 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 14,
     marginLeft: 5,
-  }, searchContainer: {
+  },
+  searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFF',
@@ -255,12 +267,12 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#000',
-  },accountDetails: {
+  },
+  accountDetails: {
     fontSize: 14,
     color: '#555',
     marginTop: 2,
   },
-  
 });
 
 export default AddConductorExisting;
